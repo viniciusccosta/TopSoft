@@ -55,7 +55,8 @@ class ConfigurationFrame(Frame):
         self.lf_bilhetes.pack(expand=False, fill="x", padx=10, pady=10)
 
         self.bilhete_path = ttk.StringVar()
-        self.bilhete_path.set(get_bilhetes_path())
+        if bilhete_path := get_bilhetes_path():
+            self.bilhete_path.set(bilhete_path)
 
         self.entry_bilhetes_path = ttk.Entry(
             self.lf_bilhetes,
