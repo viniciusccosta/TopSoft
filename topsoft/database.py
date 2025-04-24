@@ -3,7 +3,7 @@ from pickledb import PickleDB
 
 from topsoft.constants import ACCOUNT, SERVICE
 
-db = PickleDB("settings.db")
+db = PickleDB("settings.json")
 
 
 def get_or_set(db, key, default):
