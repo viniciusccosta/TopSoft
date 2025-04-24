@@ -1,14 +1,15 @@
 import keyring
-import pickledb
+from pickledb import PickleDB
 
 from topsoft.constants import ACCOUNT, SERVICE
 
-db = pickledb.load("settings.db", auto_dump=True)
+db = PickleDB("settings.db")
 
 
 def get_or_set(db, key, default):
-    if not db.exists(key):
+    if db.get(key) is None:
         db.set(key, default)
+
     return db.get(key)
 
 
@@ -25,32 +26,35 @@ def get_api_key():
 
 
 def get_bilhetes_path():
-    # TODO: Use fast/not_a_database to store config instead of JSON
-
     """Retrieve the path to the bilhetes file."""
+
     bilhetes_path = get_or_set(db, "bilhetes_path", None)
     return bilhetes_path
 
 
 def get_interval():
     """Retrieve the interval for the background task."""
+
     interval = get_or_set(db, "interval", 60)
     return interval
 
 
 def set_bilhetes_path(path):
     """Set the path to the bilhetes file."""
-    db.set("bilhetes_path", path)
-    db.dump()
+
+    with db:
+        db.set("bilhetes_path", path)
 
 
 def set_interval(interval):
     """Set the interval for the background task."""
-    db.set("interval", interval)
-    db.dump()
+
+    with db:
+        db.set("interval", interval)
 
 
 def set_api_key(api_key):
     """Set the API key in the OS vault."""
+
     keyring.set_password(SERVICE, ACCOUNT, api_key)
     get_api_key._cached = api_key
