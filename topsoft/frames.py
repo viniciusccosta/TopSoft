@@ -54,13 +54,13 @@ class ConfigurationFrame(Frame):
         self.lf_bilhetes = ttk.LabelFrame(self, text="Bilhetes")
         self.lf_bilhetes.pack(expand=False, fill="x", padx=10, pady=10)
 
-        self.bilhete_path = ttk.StringVar()
+        self.bilhetes_path = ttk.StringVar()
         if bilhete_path := get_bilhetes_path():
-            self.bilhete_path.set(bilhete_path)
+            self.bilhetes_path.set(bilhete_path)
 
         self.entry_bilhetes_path = ttk.Entry(
             self.lf_bilhetes,
-            textvariable=self.bilhete_path,
+            textvariable=self.bilhetes_path,
         )
         self.entry_bilhetes_path.pack(
             expand=True, fill="x", padx=10, pady=10, side="left"
@@ -68,41 +68,59 @@ class ConfigurationFrame(Frame):
 
         self.btn_bilhetes_path = ttk.Button(
             self.lf_bilhetes,
-            text="Browse",
+            text="Procurar",
             command=self.browse_bilhetes_path,
         )
         self.btn_bilhetes_path.pack(expand=False, padx=10, pady=10, side="left")
 
         # ActivitySoft API Key
-        try:
-            api_key = get_api_key()
-        except RuntimeError:
-            api_key = None
+        self.api_key = ttk.StringVar()
+        if api_key := get_api_key():
+            self.api_key.set(api_key)
+        else:
+            self.api_key.set("")
 
-        self.as_key = ttk.StringVar()
-        self.as_key.set("****************" if api_key else "NOT SET")
+        self.lf_api = ttk.LabelFrame(self, text="ActivitySoft API Key")
+        self.lf_api.pack(expand=False, fill="x", padx=10, pady=10)
 
-        self.lf_activitysoft = ttk.LabelFrame(self, text="ActivitySoft API Key")
-        self.lf_activitysoft.pack(expand=False, fill="x", padx=10, pady=10)
-
-        self.entry_activitysoft_key = ttk.Entry(
-            self.lf_activitysoft,
-            textvariable=self.as_key,
+        self.entry_api = ttk.Entry(
+            self.lf_api,
+            textvariable=self.api_key,
             show="*",
+            state="readonly",
         )
-        self.entry_activitysoft_key.pack(expand=True, fill="x", padx=10, pady=10)
+        self.entry_api.pack(
+            expand=True,
+            fill="x",
+            padx=10,
+            pady=10,
+            side="left",
+        )
+
+        self.change_api = ttk.StringVar()
+        self.change_api.set("")
+
+        self.cb_edit_api = ttk.Checkbutton(
+            self.lf_api,
+            text="Editar",
+            variable=self.change_api,
+            onvalue="1",
+            offvalue="0",
+            command=lambda: self.enable_entry_api(),
+        )
+        self.cb_edit_api.pack(expand=False, padx=10, pady=10, side="left")
 
         # Interval
         self.intervalo = ttk.IntVar()
         self.intervalo.set(get_interval())
 
-        self.lf_interval = ttk.LabelFrame(
+        self.lf_intervalo = ttk.LabelFrame(
             self, text="Intervalo (em segundos) [60-86400]"
         )
-        self.lf_interval.pack(expand=False, fill="x", padx=10, pady=10)
+        self.lf_intervalo.pack(expand=False, fill="x", padx=10, pady=10)
 
         self.spin_intervalo = ttk.Spinbox(
-            self.lf_interval,
+            self.lf_intervalo,
             from_=60,
             to=86400,
             textvariable=self.intervalo,
@@ -115,7 +133,7 @@ class ConfigurationFrame(Frame):
         # Save Button
         self.btn_save = ttk.Button(
             self,
-            text="Salvar",
+            text="Salvar Configurações",
             command=self.save_config,
         )
         self.btn_save.pack(expand=False, padx=10, pady=10)
@@ -141,20 +159,34 @@ class ConfigurationFrame(Frame):
         """
         Opens a file dialog to select a path for the bilhetes.
         """
-        path = filedialog.askopenfilename()
-        if path:
-            self.bilhete_path.set(path)
-            self.entry_bilhetes_path.delete(0, "end")
-            self.entry_bilhetes_path.insert(0, path)
+        filepath = filedialog.askopenfilename(
+            filetypes=(
+                ("Text files", "*.txt"),
+                ("All files", "*.*"),
+            )
+        )
 
-        self.entry_bilhetes_path.update()
+        if filepath:
+            self.bilhetes_path.set(filepath)
+
+    def enable_entry_api(self):
+        """
+        Enables the entry field for the ActivitySoft API key.
+        """
+
+        if self.change_api.get() == "1":
+            self.entry_api.config(state="normal")
+            self.api_key.set("")
+        else:
+            self.entry_api.config(state="readonly")
+            self.api_key.set(get_api_key())
 
     def save_config(self):
         """
         Saves the configuration settings.
         """
-        bilhete_path = self.bilhete_path.get()
-        activitysoft_key = self.entry_activitysoft_key.get()
+        bilhete_path = self.bilhetes_path.get()
+        activitysoft_key = self.entry_api.get()
         intervalo = self.intervalo.get()
 
         # Save the settings to the database
