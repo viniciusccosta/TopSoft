@@ -2,6 +2,15 @@ from tkinter import Frame, filedialog
 
 import ttkbootstrap as ttk
 
+from topsoft.database import (
+    get_api_key,
+    get_bilhetes_path,
+    get_interval,
+    set_api_key,
+    set_bilhetes_path,
+    set_interval,
+)
+
 
 class MainFrame(Frame):
     """
@@ -9,7 +18,7 @@ class MainFrame(Frame):
     Inherits from the Tkinter Frame class.
     """
 
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, controller, *args, **kwargs):
         """
         Initializes the TopSoftFrame instance.
 
@@ -19,6 +28,7 @@ class MainFrame(Frame):
         """
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
+        self.controller = controller
 
 
 class ConfigurationFrame(Frame):
@@ -27,7 +37,7 @@ class ConfigurationFrame(Frame):
     Inherits from the Tkinter Frame class.
     """
 
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, controller, *args, **kwargs):
         """
         Initializes the ActivitySoftFrame instance.
 
@@ -35,15 +45,17 @@ class ConfigurationFrame(Frame):
         :param args: Additional positional arguments for the Frame.
         :param kwargs: Additional keyword arguments for the Frame.
         """
+
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
+        self.controller = controller
 
         # Bilhetes Path
         self.lf_bilhetes = ttk.LabelFrame(self, text="Bilhetes")
         self.lf_bilhetes.pack(expand=False, fill="x", padx=10, pady=10)
 
         self.bilhete_path = ttk.StringVar()
-        self.bilhete_path.set("")  # TODO: Read from config/database
+        self.bilhete_path.set(get_bilhetes_path())
 
         self.entry_bilhetes_path = ttk.Entry(
             self.lf_bilhetes,
@@ -61,8 +73,13 @@ class ConfigurationFrame(Frame):
         self.btn_bilhetes_path.pack(expand=False, padx=10, pady=10, side="left")
 
         # ActivitySoft API Key
+        try:
+            api_key = get_api_key()
+        except RuntimeError:
+            api_key = None
+
         self.as_key = ttk.StringVar()
-        self.as_key.set("****************")
+        self.as_key.set("****************" if api_key else "NOT SET")
 
         self.lf_activitysoft = ttk.LabelFrame(self, text="ActivitySoft API Key")
         self.lf_activitysoft.pack(expand=False, fill="x", padx=10, pady=10)
@@ -76,7 +93,7 @@ class ConfigurationFrame(Frame):
 
         # Interval
         self.intervalo = ttk.IntVar()
-        self.intervalo.set(60)  # TODO: Read from config/database
+        self.intervalo.set(get_interval())
 
         self.lf_interval = ttk.LabelFrame(
             self, text="Intervalo (em segundos) [60-86400]"
@@ -137,6 +154,12 @@ class ConfigurationFrame(Frame):
         """
         bilhete_path = self.bilhete_path.get()
         activitysoft_key = self.entry_activitysoft_key.get()
+        intervalo = self.intervalo.get()
 
-        # TODO: Save the settings to a file or database
+        # Save the settings to the database
+        set_bilhetes_path(bilhete_path)
+        set_interval(intervalo)
+        set_api_key(activitysoft_key)
+
         # TODO: Kill the background task and restart it with the new settings
+        self.controller.start_thread()
