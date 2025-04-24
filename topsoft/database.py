@@ -4,6 +4,7 @@ from pickledb import PickleDB
 from topsoft.constants import ACCOUNT, SERVICE
 
 db = PickleDB("settings.json")
+from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
 
 
 def get_or_set(db, key, default):
@@ -33,7 +34,7 @@ def get_bilhetes_path():
 def get_interval():
     """Retrieve the interval for the background task."""
 
-    interval = get_or_set(db, "interval", 60)
+    interval = get_or_set(db, "interval", DEFAULT_INTERVAL)
     return interval
 
 
@@ -48,7 +49,7 @@ def set_interval(interval):
     """Set the interval for the background task."""
 
     with db:
-        db.set("interval", interval)
+        db.set("interval", max(MIN_INTERVAL, min(interval, MAX_INTERVAL)))
 
 
 def set_api_key(api_key):

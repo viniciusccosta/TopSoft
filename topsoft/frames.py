@@ -2,6 +2,7 @@ from tkinter import Frame, filedialog
 
 import ttkbootstrap as ttk
 
+from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
 from topsoft.database import (
     get_api_key,
     get_bilhetes_path,
@@ -115,14 +116,14 @@ class ConfigurationFrame(Frame):
         self.intervalo.set(get_interval())
 
         self.lf_intervalo = ttk.LabelFrame(
-            self, text="Intervalo (em segundos) [60-86400]"
+            self, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] segundos"
         )
         self.lf_intervalo.pack(expand=False, fill="x", padx=10, pady=10)
 
         self.spin_intervalo = ttk.Spinbox(
             self.lf_intervalo,
-            from_=60,
-            to=86400,
+            from_=MIN_INTERVAL,
+            to=MAX_INTERVAL,
             textvariable=self.intervalo,
             increment=1,
             validate="all",
@@ -144,15 +145,15 @@ class ConfigurationFrame(Frame):
         """
         try:
             value = int(value)
-            if value < 60:
-                self.intervalo.set(60)  # Force minimum value
+            if value < MIN_INTERVAL:
+                self.intervalo.set(MIN_INTERVAL)  # Force minimum value
                 return False
-            elif value > 86400:
-                self.intervalo.set(86400)  # Force maximum value
+            elif value > MAX_INTERVAL:
+                self.intervalo.set(MAX_INTERVAL)  # Force maximum value
                 return False
             return True
         except ValueError:
-            self.intervalo.set(60)  # Default to minimum if invalid input
+            self.intervalo.set(DEFAULT_INTERVAL)  # Default to minimum if invalid input
             return False
 
     def browse_bilhetes_path(self):
