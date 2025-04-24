@@ -2,6 +2,7 @@ import logging
 import threading
 
 import ttkbootstrap as ttk
+from rich.logging import RichHandler
 
 from topsoft.frames import ConfigurationFrame, MainFrame
 from topsoft.tasks import background_task
@@ -90,6 +91,11 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            RichHandler(
+                rich_tracebacks=True,
+            )
+        ],
     )
 
     app = App()
