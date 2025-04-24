@@ -14,7 +14,7 @@ class App(ttk.Window):
 
         # Window:
         self.title("TopSoft")
-        # self.geometry("800x600")
+        self.geometry("800x600")
 
         # Notebook
         self.notebook = ttk.Notebook(self)
