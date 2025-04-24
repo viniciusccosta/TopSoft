@@ -27,6 +27,11 @@ def background_task(stop_event):
         logging.debug(f"Sending data to ActivitySoft: {data}")
 
         api_key = get_api_key()
+        if not api_key:
+            logger.error("API key not found")
+            return False
+
+        # TODO: Implement the actual API call to ActivitySoft
 
         return True  # TODO: Simulating success
 
