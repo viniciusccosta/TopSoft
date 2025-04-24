@@ -18,8 +18,6 @@ def get_api_key():
 
     if not hasattr(get_api_key, "_cached"):
         secret = keyring.get_password(SERVICE, ACCOUNT)
-        if secret is None:
-            raise RuntimeError("API key not set in keyring")
         get_api_key._cached = secret
 
     return get_api_key._cached
