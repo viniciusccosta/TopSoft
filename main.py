@@ -40,7 +40,6 @@ class App(ttk.Window):
 
 if __name__ == "__main__":
     # TODO: SystemTray icon
-    # TODO: Initialize logging
     # TODO: Auto launch on startup
     # TODO: Auto check for updates
     # TODO: Create database
