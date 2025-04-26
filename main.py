@@ -2,6 +2,7 @@ import logging
 import threading
 
 import ttkbootstrap as ttk
+from decouple import config
 from rich.logging import RichHandler
 
 from topsoft.frames import ConfigurationFrame, MainFrame
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     # TODO: Create installation file
 
     logging.basicConfig(
-        level=logging.INFO,
+        level=config("LOGGING_LEVEL", default=logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             RichHandler(
