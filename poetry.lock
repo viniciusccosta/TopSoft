@@ -631,6 +631,18 @@ packaging = ">=22.0"
 setuptools = ">=42.0.0"
 
 [[package]]
+name = "python-decouple"
+version = "3.8"
+description = "Strict separation of settings from code."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "python-decouple-3.8.tar.gz", hash = "sha256:ba6e2657d4f376ecc46f77a3a615e058d93ba5e465c01bbe57289bfb7cce680f"},
+    {file = "python_decouple-3.8-py3-none-any.whl", hash = "sha256:d0d45340815b25f4de59c974b855bb38d03151d81b037d9e3f463b0c9f8cbd66"},
+]
+
+[[package]]
 name = "pywin32-ctypes"
 version = "0.2.3"
 description = "A (partial) reimplementation of pywin32 using ctypes/cffi"
@@ -718,4 +730,4 @@ pillow = ">=9.5"
 [metadata]
 lock-version = "2.1"
 python-versions = "~3.12"
-content-hash = "fc539ec56e4d6d708d18a4d4c64bf10442cf6b003b344730b78b552cc62a4e37"
+content-hash = "f11ca9df295e457ae4bd8f3aefec5555803be740551908016c0d4e65b3a948dd"
