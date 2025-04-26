@@ -1,6 +1,8 @@
 import logging
 from time import sleep
 
+from decouple import config
+
 from topsoft.database import get_api_key, get_bilhetes_path, get_interval
 from topsoft.utils import read_in_batches
 
@@ -57,9 +59,12 @@ def background_task(stop_event):
         # TODO: Implement the actual API call to ActivitySoft
         # TODO: Necessário saber quais dados já foram enviados pra evitar duplicados no ActSoft ?
 
-        for bilhete in bilhetes:
+        steps_api_debug = config("STEP_API_DEBUG", default=100)
+
+        for i, bilhete in enumerate(bilhetes):
             try:
-                logging.debug(f"Sending bilhete: {bilhete}")
+                if i % steps_api_debug == 0:
+                    logger.debug(f"Sending bilhete {i} of {len(bilhetes)}")
                 # TODO: Implement the API call here ASYNC
             except Exception as e:
                 logger.warning(f"Error sending bilhete: {bilhete}")
