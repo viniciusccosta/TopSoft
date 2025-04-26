@@ -2,6 +2,7 @@ import logging
 from time import sleep
 
 from topsoft.database import get_api_key, get_bilhetes_path, get_interval
+from topsoft.utils import read_in_batches
 
 logger = logging.getLogger(__name__)
 
@@ -11,20 +12,42 @@ def background_task(stop_event):
         """
         Read the bilhetes file and return a list of dictionaries with the data.
         """
+
         logging.debug(f"Reading bilhetes file: {filepath}")
 
-        with open(filepath, "r") as f:
-            data = f.readlines()
+        bilhetes = []
 
-        # TODO: Process the data as needed ?
+        # TODO: TALVEZ será necessário um Banco de Dados
+        # TODO: Forma mais inteligente de ler o arquivo sem precisar ler TODOS os dados toda vez
+        # TODO: Como só registra hora:minuto podemos ler apenas a cada multiplo de 60 segundos (intervalo no frontend)
 
-        return data
+        for batch in read_in_batches(filepath):
+            for tokens in batch:
+                try:
+                    bilhetes.append(
+                        {
+                            "marcação": tokens[
+                                0
+                            ],  # str(3) = 010 (Entrada) | 011 (Saída)
+                            "date": tokens[1],  # dd/mm/yy ou dd/mm/yyyy
+                            "time": tokens[2],  # hh:mm
+                            "cartao": tokens[3],  # str(5) ou str(16)
+                            "catraca": tokens[4],  # str(2) = 01, 02, 03, ..., 99
+                            # "sequencial": tokens[5],  # str(10)
+                        }
+                    )
+                except IndexError as e:
+                    logging.warning(f"Error reading line")  # TODO: Melhorar mensagem
+                    logging.exception(e)
+                    continue
 
-    def send_data_to_activitysoft(data):
+        return bilhetes
+
+    def send_data_to_activitysoft(bilhetes):
         """
         Send data to ActivitySoft.
         """
-        logging.debug(f"Sending data to ActivitySoft: {data}")
+        logging.debug(f"Sending data to ActivitySoft: {len(bilhetes)} bilhetes")
 
         api_key = get_api_key()
         if not api_key:
@@ -32,6 +55,16 @@ def background_task(stop_event):
             return False
 
         # TODO: Implement the actual API call to ActivitySoft
+        # TODO: Necessário saber quais dados já foram enviados pra evitar duplicados no ActSoft ?
+
+        for bilhete in bilhetes:
+            try:
+                logging.debug(f"Sending bilhete: {bilhete}")
+                # TODO: Implement the API call here ASYNC
+            except Exception as e:
+                logger.warning(f"Error sending bilhete: {bilhete}")
+                logger.exception(e)
+                continue
 
         return True  # TODO: Simulating success
 
@@ -70,11 +103,11 @@ def background_task(stop_event):
                 if result:
                     logger.info("Data sent successfully")
                 else:
-                    logger.error("Failed to send data")
+                    logger.warning("Failed to send data")
 
                 # TODO: Atualizar interface gráfica
         except Exception as e:
-            logger.error(f"Error na execução da tarefa")
+            logger.warning(f"Error na execução da tarefa")
             logger.exception(e)
         finally:
             wait_for_interval(stop_event)
