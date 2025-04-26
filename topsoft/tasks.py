@@ -1,8 +1,13 @@
+import asyncio
 import logging
+from functools import partial
 from time import sleep
 
+import aiometer
+import httpx
 from decouple import config
 
+from topsoft.constants import ACTIVITY_URL
 from topsoft.database import get_api_key, get_bilhetes_path, get_interval
 from topsoft.utils import read_in_batches
 
@@ -45,33 +50,51 @@ def background_task(stop_event):
 
         return bilhetes
 
-    def send_data_to_activitysoft(bilhetes):
+    async def send_data_to_activitysoft(bilhetes):
         """
         Send data to ActivitySoft.
         """
-        logging.debug(f"Sending data to ActivitySoft: {len(bilhetes)} bilhetes")
 
+        logger.debug(f"Sending data to ActivitySoft: {len(bilhetes)} bilhetes")
+
+        # TODO: Necessário saber quais dados já foram enviados pra evitar duplicados no ActSoft ?
+
+        # Header
         api_key = get_api_key()
         if not api_key:
             logger.error("API key not found")
             return False
 
-        # TODO: Implement the actual API call to ActivitySoft
-        # TODO: Necessário saber quais dados já foram enviados pra evitar duplicados no ActSoft ?
+        # TODO: ActivitySoft espera a matrícula do aluno enquanto a catraca retorna o cartão
+        # TODO: PS: Cada instuição tem uma API Key diferente, logo, vamos ter que fazer sempre uma relação entre cartão -> matrícula -> instituição -> api_key
 
-        steps_api_debug = config("STEP_API_DEBUG", default=100)
+        headers = {"apiKey": api_key}
 
-        for i, bilhete in enumerate(bilhetes):
-            try:
-                if i % steps_api_debug == 0:
-                    logger.debug(f"Sending bilhete {i} of {len(bilhetes)}")
-                # TODO: Implement the API call here ASYNC
-            except Exception as e:
-                logger.warning(f"Error sending bilhete: {bilhete}")
-                logger.exception(e)
-                continue
+        # Payload and Request
+        async with httpx.AsyncClient(headers=headers) as client:
 
-        return True  # TODO: Simulating success
+            async def post_data(payload):
+                try:
+                    response = await client.post(ACTIVITY_URL, json=payload)
+                    response.raise_for_status()  # catch HTTP errors
+
+                    return response.status_code, response.json()
+                except Exception as e:
+                    logger.error(f"Failed to send payload {payload}")
+                    logger.exception(e)
+
+                    return None, None
+
+            results = await aiometer.run_all(
+                [partial(post_data, bilhete) for bilhete in bilhetes[:50]],
+                max_at_once=500,  # TODO: Adjust based on your API/server capacity
+                max_per_second=1,  # TODO: Optional: rate-limit
+            )
+
+        for status, data in results:
+            logger.info(f"Status: {status}, Response: {data}")
+
+        return True
 
     def wait_for_interval(stop_event):
         """
@@ -104,11 +127,12 @@ def background_task(stop_event):
                 data = read_bilhetes_file(bilhetes_path)
 
                 # Enviar dados para ActivitySoft:
-                result = send_data_to_activitysoft(data)
-                if result:
-                    logger.info("Data sent successfully")
-                else:
-                    logger.warning("Failed to send data")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(send_data_to_activitysoft(data))
+                finally:
+                    loop.close()
 
                 # TODO: Atualizar interface gráfica
         except Exception as e:
