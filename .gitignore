@@ -178,4 +178,4 @@ cython_debug/
 settings.json
 .DS_Store
 *.sqlite3
-.offset
+*.offset
