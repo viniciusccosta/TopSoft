@@ -919,6 +919,18 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pygtail"
+version = "0.14.0"
+description = "Reads log file lines that have not been read."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "pygtail-0.14.0-py3-none-any.whl", hash = "sha256:3d8e847d4d5c56e3cece1f65577562e63f8b75af7b93bf21b71c3213d369c2a9"},
+    {file = "pygtail-0.14.0.tar.gz", hash = "sha256:55616d31a081eaaeb069d0946f2bc7e530ebf505d4c3c050f8e941786a3449d3"},
+]
+
+[[package]]
 name = "pyinstaller"
 version = "6.13.0"
 description = "PyInstaller bundles a Python application and all its dependencies into a single package."
@@ -1220,4 +1232,4 @@ typing-extensions = ">=4.12.0"
 [metadata]
 lock-version = "2.1"
 python-versions = "~3.12"
-content-hash = "4e535aa1bc8fadc73a029f13e161b167934e4ca05e847f6d267aac63787bca13"
+content-hash = "d05e2af990636482aa26c2479965c3a0601a5b4e1c49c49d747a0a31146d3092"
