@@ -12,13 +12,17 @@ from topsoft.constants import (
 logger = logging.getLogger(__name__)
 
 
-_db = PickleDB(SETTINGS_FILE)
+sdb = PickleDB(
+    SETTINGS_FILE,
+)
 
 
 def get_or_set(key: str, default):
-    if _db.get(key) is None:
-        _db.set(key, default)
-    return _db.get(key)
+    with sdb:
+        if sdb.get(key) is None:
+            sdb.set(key, default)
+
+    return sdb.get(key)
 
 
 def get_bilhetes_path() -> str:
@@ -26,7 +30,8 @@ def get_bilhetes_path() -> str:
 
 
 def set_bilhetes_path(path: str) -> None:
-    _db.set("bilhetes_path", path)
+    with sdb:
+        sdb.set("bilhetes_path", path)
 
 
 def get_interval() -> int:
@@ -34,5 +39,6 @@ def get_interval() -> int:
 
 
 def set_interval(interval: int) -> None:
-    interval = max(MIN_INTERVAL, min(interval, MAX_INTERVAL))
-    _db.set("interval", interval)
+    with sdb:
+        interval = max(MIN_INTERVAL, min(interval, MAX_INTERVAL))
+        sdb.set("interval", interval)
