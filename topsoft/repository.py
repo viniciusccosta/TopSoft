@@ -26,9 +26,13 @@ def update_student_records(alunos_json):
             aluno = session.get(Aluno, data["id"])
             if aluno:
                 for key, val in data.items():
-                    setattr(aluno, key, val)
+                    if hasattr(Aluno, key):
+                        setattr(aluno, key, val)
             else:
-                aluno = Aluno(**data)
+                valid_data = {
+                    key: val for key, val in data.items() if hasattr(Aluno, key)
+                }
+                aluno = Aluno(**valid_data)
                 session.add(aluno)
 
         session.commit()
@@ -82,15 +86,15 @@ def process_turnstile_event(event: dict):
         ).first()
 
         if acesso:
-            logger.info(f"Access record already exists: {acesso}")
             return acesso
 
         acesso = Acesso(
             marcacao=event["marcacao"],
             date=date_obj,
             time=time_obj,
-            cartao=event["cartao"],
             catraca=event["catraca"],
+            cartao_acesso_id=card.id,
+            synced=False,
         )
         session.add(acesso)
         session.commit()

@@ -32,6 +32,7 @@ class Aluno(SQLModel, table=True):
     unidade_id: Optional[int] = None
     tipo_liberacao: Optional[str] = None
     foto_data_hora_alteracao: Optional[datetime] = None
+    # cartao_acesso_data_alteracao: Optional[datetime] = None
 
     responsaveis_adicionais_ids: List[int] = Field(
         default_factory=list,
