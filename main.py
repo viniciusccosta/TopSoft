@@ -5,6 +5,7 @@ import ttkbootstrap as ttk
 from decouple import config
 from rich.logging import RichHandler
 
+from topsoft.db import init_db
 from topsoft.frames import ConfigurationFrame, MainFrame
 from topsoft.tasks import background_task
 
@@ -98,6 +99,8 @@ if __name__ == "__main__":
             )
         ],
     )
+
+    init_db()
 
     app = App()
     app.run()
