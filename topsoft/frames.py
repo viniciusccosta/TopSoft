@@ -115,7 +115,7 @@ class ConfigurationFrame(Frame):
         self.intervalo.set(get_interval())
 
         self.lf_intervalo = ttk.LabelFrame(
-            self, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] segundos"
+            self, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] minutos"
         )
         self.lf_intervalo.pack(expand=False, fill="x", padx=10, pady=10)
 
@@ -142,6 +142,7 @@ class ConfigurationFrame(Frame):
         """
         Validates the interval value to ensure it stays within the allowed range.
         """
+
         try:
             value = int(value)
             if value < MIN_INTERVAL:

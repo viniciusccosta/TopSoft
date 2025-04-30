@@ -170,7 +170,7 @@ def background_task(stop_event):
         Wait for the specified interval.
         """
 
-        intervalo = get_interval()
+        intervalo = get_interval() * 60
 
         for i in range(intervalo):
             if stop_event.is_set():
