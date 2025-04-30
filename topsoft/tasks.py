@@ -1,12 +1,15 @@
 import asyncio
 import logging
+import os
+from datetime import datetime
 from functools import partial
 from time import sleep
 
 import aiometer
 import httpx
+from pygtail import Pygtail
 
-from topsoft.constants import API_BASE_URL
+from topsoft.constants import API_BASE_URL, OFFSET_PATH
 from topsoft.repository import (
     bulk_update_synced_acessos,
     get_not_synced_acessos,
@@ -14,48 +17,87 @@ from topsoft.repository import (
     update_student_records,
 )
 from topsoft.secrets import get_api_key
-from topsoft.settings import get_bilhetes_path, get_interval
-from topsoft.utils import read_in_batches
+from topsoft.settings import get_bilhetes_path, get_cutoff, get_interval
 
 logger = logging.getLogger(__name__)
 
 
+def get_reader(filepath):
+    return Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
+
+
 def background_task(stop_event):
-    def extract_ticket_records(filepath):
+    def extract_ticket_records(filepath, cutoff=None, force_read=False):
         """
-        Read the bilhetes file and return a list of dictionaries with the data.
+        Reads new lines from the bilhetes file since the last run (or since force_read),
+        parses each record, and returns a list of dicts.
+
+        :param filepath: Path to the log file
+        :param cutoff: datetime; if provided, only lines with timestamp >= cutoff are kept
+        :param force_read: if True, ignores previous offset and reads full file
         """
 
-        logging.debug(f"Reading bilhetes file: {filepath}")
+        logging.debug(f"Reading bilhetes file: {filepath} (force_read={force_read})")
+        tickets = []
 
-        bilhetes = []
+        # Initialize Pygtail reader
+        reader = get_reader(filepath)
 
-        # TODO: Forma mais inteligente de ler o arquivo sem precisar ler TODOS os dados toda vez
-        # TODO: Como só registra hora:minuto podemos ler apenas a cada multiplo de 60 segundos (intervalo no frontend)
+        # If forcing full re-read, delete the offset file
+        if force_read:
+            try:
+                os.remove(OFFSET_PATH)
+                reader = get_reader(filepath)
+                logging.info("Offset file removed; full file will be re-read.")
+            except FileNotFoundError:
+                pass
 
-        for batch in read_in_batches(filepath):
-            for tokens in batch:
+        for n, raw_line in enumerate(reader):
+            if stop_event.is_set():
+                logger.info("Stopping extraction of bilhetes")
+                return
+
+            try:
+                if n % 1000 == 0:
+                    logger.debug(f"Processing line {n}")
+
+                # Read and parse the line
+                parts = raw_line.strip().split()
+
+                if len(parts) < 5:
+                    logging.warning(f"Skipping malformed line: {raw_line!r}")
+                    continue
+                # TODO: Bulk insert no banco de dados
+
+                # Timestamp:
                 try:
-                    # TODO: Bulk insert no banco de dados
-
-                    bilhete = process_turnstile_event(
-                        {
-                            "marcacao": tokens[0],
-                            "date": tokens[1],
-                            "time": tokens[2],
-                            "cartao": tokens[3],
-                            "catraca": tokens[4],
-                            # "sequencial": tokens[5],
-                        }
-                    )
-
-                    bilhetes.append(bilhete)
-                except IndexError as e:
-                    logging.warning(f"Error reading line")  # TODO: Melhorar mensagem
-                    logging.exception(e)
+                    ts = datetime.strptime(f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M")
+                except ValueError:
+                    logging.warning(f"Invalid timestamp in line: {raw_line!r}")
                     continue
 
-        return bilhetes
+                # Check if the timestamp is before the cutoff:
+                if cutoff and ts < cutoff:
+                    continue
+
+                # Bilhete:
+                ticket = process_turnstile_event(
+                    {
+                        "marcacao": parts[0],
+                        "date": parts[1],
+                        "time": parts[2],
+                        "cartao": parts[3],
+                        "catraca": parts[4],
+                    }
+                )
+                tickets.append(ticket)
+            except IndexError as e:
+                logging.warning(f"Error reading line")  # TODO: Melhorar mensagem
+                logging.exception(e)
+                continue
+
+        logger.debug(f"Bilhetes read: {len(tickets)}")
+        return tickets
 
     def sync_students():
         """
@@ -136,15 +178,27 @@ def background_task(stop_event):
             logger.error("API key not found")
             return False
 
-        # TODO: ActivitySoft espera a matrícula do aluno enquanto a catraca retorna o cartão
-        # TODO: PS: Cada instuição tem uma API Key diferente, logo, vamos ter que fazer sempre uma relação entre cartão -> matrícula -> instituição -> api_key
-
         headers = {"Authorization": api_key}
 
         # Payload and Request
         async with httpx.AsyncClient(base_url=API_BASE_URL, headers=headers) as client:
 
             async def post_data(acesso):
+                try:
+                    acesso_dt = datetime.strptime(
+                        f"{acesso['date']} {acesso['time']}",
+                        "%d/%m/%y %H:%M",
+                    )
+                    cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y")
+
+                    # Check if the timestamp is before the cutoff:
+                    if acesso_dt < cutoff:
+                        logger.debug(f"Skipping data older than cutoff: {acesso}")
+                        return None, None
+                except Exception as e:
+                    logger.error(f"Error parsing date/time for cutoff: {e}")
+                    return None, None
+
                 try:
                     response = await client.post(
                         "marcar_frequencia_aluno/",
@@ -175,7 +229,7 @@ def background_task(stop_event):
 
         return results
 
-    def wait_for_interval(stop_event):
+    def wait_for_interval():
         """
         Wait for the specified interval.
         """
@@ -214,19 +268,14 @@ def background_task(stop_event):
                 acessos = get_not_synced_acessos()
 
                 # Envia dados, não sincronizados, para ActivitySoft:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    results = loop.run_until_complete(push_acessos_api(acessos))
-                finally:
-                    loop.close()
+                # results = push_acessos_api(acessos)
 
                 # Atualizar status dos bilhetes:
-                bulk_update_synced_acessos(results)
+                # bulk_update_synced_acessos(results)
 
                 # TODO: Atualizar interface gráfica
         except Exception as e:
             logger.warning(f"Error na execução da tarefa")
             logger.exception(e)
         finally:
-            wait_for_interval(stop_event)
+            wait_for_interval()
