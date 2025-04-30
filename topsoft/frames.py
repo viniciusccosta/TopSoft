@@ -3,11 +3,10 @@ from tkinter import Frame, filedialog
 import ttkbootstrap as ttk
 
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
-from topsoft.database import (
-    get_api_key,
+from topsoft.secrets import get_api_key, set_api_key
+from topsoft.settings import (
     get_bilhetes_path,
     get_interval,
-    set_api_key,
     set_bilhetes_path,
     set_interval,
 )
