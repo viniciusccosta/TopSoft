@@ -176,3 +176,5 @@ cython_debug/
 # Database files
 *.db
 settings.json
+.DS_Store
+*.sqlite3
