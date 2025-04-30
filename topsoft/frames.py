@@ -1,18 +1,23 @@
+from datetime import datetime
 from tkinter import Frame, filedialog
 
 import ttkbootstrap as ttk
+from ttkbootstrap.tableview import Tableview
 
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
+from topsoft.repository import get_acessos
 from topsoft.secrets import get_api_key, set_api_key
 from topsoft.settings import (
     get_bilhetes_path,
+    get_cutoff,
     get_interval,
     set_bilhetes_path,
+    set_cutoff,
     set_interval,
 )
 
 
-class MainFrame(Frame):
+class CartoesAcessoFrame(Frame):
     """
     A class that represents a frame in a Tkinter application.
     Inherits from the Tkinter Frame class.
@@ -20,7 +25,7 @@ class MainFrame(Frame):
 
     def __init__(self, parent, controller, *args, **kwargs):
         """
-        Initializes the TopSoftFrame instance.
+        Initializes the CartoesAcessoFrame instance.
 
         :param parent: The parent widget (usually a Tk or Toplevel instance).
         :param args: Additional positional arguments for the Frame.
@@ -29,6 +34,80 @@ class MainFrame(Frame):
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
         self.controller = controller
+
+
+class AcessosFrame(Frame):
+    """
+    A class that represents a frame in a Tkinter application.
+    Inherits from the Tkinter Frame class.
+    """
+
+    def __init__(self, parent, controller, *args, **kwargs):
+        """
+        Initializes the AcessosFrame instance.
+
+        :param parent: The parent widget (usually a Tk or Toplevel instance).
+        :param args: Additional positional arguments for the Frame.
+        :param kwargs: Additional keyword arguments for the Frame.
+        """
+        super().__init__(parent, *args, **kwargs)
+        self.parent = parent
+        self.controller = controller
+
+        cols = [
+            # {"text": "ID", "stretch": False},
+            {"text": "Sinc.", "stretch": False},
+            {"text": "Cartão de Acesso", "stretch": True},
+            # {"text": "Data", "stretch": True},
+            # {"text": "Hora", "stretch": True},
+            {"text": "Data e Hora", "stretch": True},
+            {"text": "Catraca", "stretch": True},
+        ]
+
+        self.table = Tableview(
+            self,
+            coldata=cols,
+            paginated=False,
+            searchable=True,
+            autofit=True,
+            autoalign=False,
+        )
+        self.table.pack(expand=True, fill="both", padx=10, pady=10)
+
+        for cid in self.table.cidmap:
+            self.table.align_heading_center(cid=cid)
+
+        # Schedule data insertion after initialization
+        self.after(100, self.populate_table)
+
+    def populate_table(self):
+        """
+        Populates the table with data from the database.
+        """
+
+        # Clear existing data
+        self.table.delete_rows(indices=None, iids=None)
+
+        # Get the current page index and page size
+        current_page = int(self.table._pageindex.get())
+        page_size = int(self.table.pagesize)
+
+        # Calculate the offset for pagination
+        offset = current_page * page_size
+
+        # Fetch data for the current page
+        for acesso in get_acessos(limit=1000):
+            synced = "✅" if acesso.synced else "🚫"
+            cartao = acesso.cartao_acesso.numeracao
+            # data = acesso.date.strftime("%d/%m/%Y")
+            # hora = acesso.time.strftime("%H:%M")
+            data_hora = datetime.combine(acesso.date, acesso.time)
+            catraca = acesso.catraca
+
+            self.table.insert_row("end", (synced, cartao, data_hora, catraca))
+
+        # Load the table data
+        self.table.load_table_data(clear_filters=True)
 
 
 class ConfigurationFrame(Frame):
@@ -73,6 +152,41 @@ class ConfigurationFrame(Frame):
         )
         self.btn_bilhetes_path.pack(expand=False, padx=10, pady=10, side="left")
 
+        # Data e Hora:
+        self.lf_datas = ttk.LabelFrame(self, text="Configurações de Data e Hora")
+        self.lf_datas.pack(expand=False, fill="x", padx=10, pady=10)
+
+        # Cutoff:
+        self.cutoff = ttk.StringVar()
+        self.cutoff.set(get_cutoff())
+
+        self.lf_cutoff = ttk.LabelFrame(self.lf_datas, text="Filtro de Data (Cutoff)")
+        self.lf_cutoff.pack(expand=True, fill="x", side="left", padx=10, pady=10)
+
+        self.de_cutoff = ttk.DateEntry(self.lf_cutoff, dateformat="%d/%m/%Y")
+        self.de_cutoff.pack(expand=True, fill="both", padx=10, pady=10)
+        self.de_cutoff.entry.config(textvariable=self.cutoff)
+
+        # Intervalo:
+        self.intervalo = ttk.IntVar()
+        self.intervalo.set(get_interval())
+
+        self.lf_intervalo = ttk.LabelFrame(
+            self.lf_datas, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] minutos"
+        )
+        self.lf_intervalo.pack(expand=True, fill="both", side="left", padx=10, pady=10)
+
+        self.spin_intervalo = ttk.Spinbox(
+            self.lf_intervalo,
+            from_=MIN_INTERVAL,
+            to=MAX_INTERVAL,
+            textvariable=self.intervalo,
+            increment=1,
+            validate="all",
+            validatecommand=(self.register(self.validate_interval), "%P"),
+        )
+        self.spin_intervalo.pack(expand=True, fill="both", padx=10, pady=10)
+
         # ActivitySoft API Key
         self.api_key = ttk.StringVar()
         if api_key := get_api_key():
@@ -109,26 +223,6 @@ class ConfigurationFrame(Frame):
             command=lambda: self.enable_entry_api(),
         )
         self.cb_edit_api.pack(expand=False, padx=10, pady=10, side="left")
-
-        # Interval
-        self.intervalo = ttk.IntVar()
-        self.intervalo.set(get_interval())
-
-        self.lf_intervalo = ttk.LabelFrame(
-            self, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] minutos"
-        )
-        self.lf_intervalo.pack(expand=False, fill="x", padx=10, pady=10)
-
-        self.spin_intervalo = ttk.Spinbox(
-            self.lf_intervalo,
-            from_=MIN_INTERVAL,
-            to=MAX_INTERVAL,
-            textvariable=self.intervalo,
-            increment=1,
-            validate="all",
-            validatecommand=(self.register(self.validate_interval), "%P"),
-        )
-        self.spin_intervalo.pack(expand=True, fill="x", padx=10, pady=10)
 
         # Save Button
         self.btn_save = ttk.Button(
@@ -189,11 +283,13 @@ class ConfigurationFrame(Frame):
         bilhete_path = self.bilhetes_path.get()
         activitysoft_key = self.entry_api.get()
         intervalo = self.intervalo.get()
+        cutoff = self.cutoff.get()
 
         # Save the settings to the database
         set_bilhetes_path(bilhete_path)
         set_interval(intervalo)
         set_api_key(activitysoft_key)
+        set_cutoff(cutoff)
 
         # TODO: Kill the background task and restart it with the new settings
         self.controller.start_thread()
