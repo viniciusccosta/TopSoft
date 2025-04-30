@@ -6,7 +6,7 @@ from decouple import config
 from rich.logging import RichHandler
 
 from topsoft.db import init_db
-from topsoft.frames import ConfigurationFrame, MainFrame
+from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
 from topsoft.tasks import background_task
 
 
@@ -23,7 +23,9 @@ class App(ttk.Window):
 
         # Frames:
         self.frames = {
-            "TopSoft": MainFrame(self.notebook, controller=self),
+            # "TopSoft": MainFrame(self.notebook, controller=self),
+            "Cartões de Acesso": CartoesAcessoFrame(self.notebook, controller=self),
+            "Acessos": AcessosFrame(self.notebook, controller=self),
             "Configurações": ConfigurationFrame(self.notebook, controller=self),
         }
 
