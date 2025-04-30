@@ -42,3 +42,12 @@ def set_interval(interval: int) -> None:
     with sdb:
         interval = max(MIN_INTERVAL, min(interval, MAX_INTERVAL))
         sdb.set("interval", interval)
+
+
+def get_cutoff():
+    return get_or_set("cutoff", "01/01/2025")
+
+
+def set_cutoff(cutoff):
+    with sdb:
+        sdb.set("cutoff", cutoff)
