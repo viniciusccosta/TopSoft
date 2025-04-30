@@ -13,3 +13,4 @@ API_BASE_URL = config(
 )
 
 SETTINGS_FILE = config("SETTINGS_FILE", default="./settings.json")
+OFFSET_PATH = config("OFFSET_PATH", default="./bilhetes.offset")
