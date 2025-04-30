@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from typing import List
 
+from sqlalchemy.orm import joinedload
 from sqlmodel import Session, select
 
 from topsoft.db import engine
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 def update_student_records(alunos_json):
+    logger.debug(f"Updating student records")
+
     with Session(engine) as session:
         for data in alunos_json:
             # convert date string to datetime if needed
@@ -50,6 +53,8 @@ def process_turnstile_event(event: dict):
         "catraca": "03"
     }
     """
+
+    # logger.debug(f"Processing event: {event}")
 
     with Session(engine) as session:
         # Convert date and time strings to datetime objects
@@ -137,4 +142,27 @@ def get_not_synced_acessos():
 
     with Session(engine) as session:
         acessos = session.exec(select(Acesso).where(Acesso.synced == False)).all()
+        return acessos
+
+
+def get_acessos(offset=None, limit=None):
+    """
+    Get access records with pagination, ordered from most recent to oldest,
+    including foreign key fields.
+    """
+
+    with Session(engine) as session:
+        query = (
+            select(Acesso)
+            .options(joinedload(Acesso.cartao_acesso))
+            .order_by(Acesso.date.desc(), Acesso.time.desc())
+        )
+
+        # Apply pagination if offset and limit are provided
+        if offset is not None:
+            query = query.offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+
+        acessos = session.exec(query).all()
         return acessos
