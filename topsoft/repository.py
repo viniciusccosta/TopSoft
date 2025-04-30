@@ -50,7 +50,7 @@ def process_turnstile_event(event: dict):
     with Session(engine) as session:
         # Convert date and time strings to datetime objects
         try:
-            date_obj = datetime.strptime(event["date"], "%d/%m/%Y").date()
+            date_obj = datetime.strptime(event["date"], "%d/%m/%y").date()
             time_obj = datetime.strptime(event["time"], "%H:%M").time()
         except ValueError as e:
             logger.error(f"Invalid date/time format: {e}")

@@ -67,8 +67,18 @@ def background_task(stop_event):
             Fetch the list of students from the API.
             """
 
+            # Header
+            api_key = get_api_key()
+            if not api_key:
+                logger.error("API key not found")
+                return None
+
+            # TODO: PS: Cada instuição tem uma API Key diferente, logo, vamos ter que fazer sempre uma relação entre cartão -> matrícula -> instituição -> api_key
+
+            headers = {"Authorization": api_key}
+
             try:
-                with httpx.Client(base_url=API_BASE_URL) as client:
+                with httpx.Client(base_url=API_BASE_URL, headers=headers) as client:
                     response = client.get("lista_alunos/")
                     response.raise_for_status()
 
@@ -78,7 +88,7 @@ def background_task(stop_event):
                         )
                         return None
 
-                    return response.json().get("results", [])
+                    return response.json()
             except httpx.RequestError as e:
                 logger.error(f"Request error while fetching students: {e}")
             except Exception as e:
@@ -129,7 +139,7 @@ def background_task(stop_event):
         # TODO: ActivitySoft espera a matrícula do aluno enquanto a catraca retorna o cartão
         # TODO: PS: Cada instuição tem uma API Key diferente, logo, vamos ter que fazer sempre uma relação entre cartão -> matrícula -> instituição -> api_key
 
-        headers = {"apiKey": api_key}
+        headers = {"Authorization": api_key}
 
         # Payload and Request
         async with httpx.AsyncClient(base_url=API_BASE_URL, headers=headers) as client:
