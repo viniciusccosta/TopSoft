@@ -17,12 +17,12 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=.
 OutputBaseFilename={#MyOutputBaseFilename}
-; SetupIconFile=..\dist\TopSoft\_internal\icon.ico
+SetupIconFile=.\topsoft.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#MyAppName}
-;UninstallDisplayIcon={app}\_internal\icon.ico
+UninstallDisplayIcon={app}\topsoft.ico
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -32,8 +32,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: ".\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; Source: "..\dist\TopSoft\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
-; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+Source: ".\topsoft.ico"; DestDir: "{app}"; Flags: ignoreversion;
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -43,4 +42,6 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}\_internal\*.log"
+Type: filesandordirs; Name: "{app}\*.log"
+Type: filesandordirs; Name: "{app}\topsoft.db"
+Type: filesandordirs; Name: "{app}\settings.json"

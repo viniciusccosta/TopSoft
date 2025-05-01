@@ -3,13 +3,14 @@ import threading
 
 import ttkbootstrap as ttk
 from decouple import config
-from PIL import Image, ImageDraw
+from PIL import Image
 from pystray import Icon, Menu, MenuItem
 from rich.logging import RichHandler
 
 from topsoft.db import init_db
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
 from topsoft.tasks import background_task
+from topsoft.utils import get_path
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ class App(ttk.Window):
         # Window:
         self.title("TopSoft")
         self.geometry("800x600")
+
+        # Window Icon:
+        self.iconbitmap(get_path("topsoft.ico"))
 
         # Notebook
         self.notebook = ttk.Notebook(self)
@@ -56,9 +60,7 @@ class App(ttk.Window):
         Create a system tray icon for the application.
         """
 
-        image = Image.new("RGB", (64, 64), (255, 255, 255))
-        draw = ImageDraw.Draw(image)
-        draw.rectangle((16, 16, 48, 48), fill="blue")
+        image = Image.open(get_path("topsoft.ico"))
 
         menu = Menu(
             MenuItem("Show", self.show_window),

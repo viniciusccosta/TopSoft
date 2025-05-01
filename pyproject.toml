@@ -31,5 +31,5 @@ pyinstaller = "^6.13.0"
 taskipy = "^1.14.1"
 
 [tool.taskipy.tasks]
-build_exe = "pyinstaller --onefile --noconsole --name topsoft main.py"
+build_exe = "pyinstaller --onefile --noconsole --name topsoft --icon=topsoft.ico --add-data topsoft.ico;. main.py"
 build_installer = "\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" installer.iss"
