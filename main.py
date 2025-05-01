@@ -9,7 +9,7 @@ from rich.logging import RichHandler
 
 from topsoft.db import init_db
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
-from topsoft.tasks import background_task
+from topsoft.tasks import task_processamento, task_update_checker
 from topsoft.utils import get_path
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,9 @@ class App(ttk.Window):
 
         # Window Icon:
         self.iconbitmap(get_path("topsoft.ico"))
+
+        # Windows Closing:
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Notebook
         self.notebook = ttk.Notebook(self)
@@ -43,17 +46,23 @@ class App(ttk.Window):
         # Notebook:
         self.notebook.pack(expand=True, fill="both")
 
-        # Thread:
-        self.thread = None
-        self.stop_event = threading.Event()
-        self.start_thread()
-
-        # Windows Closing:
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        # Processamento:
+        self.processing_thread = None
+        self.processing_stop_event = threading.Event()
+        self.start_processing_thread()
 
         # System Tray:
         self.tray_icon = None
         self.create_tray_icon()
+
+        # Check for updates:
+        self.update_stop_event = threading.Event()
+        self.update_thread = threading.Thread(
+            target=task_update_checker,
+            args=(self.update_stop_event,),
+            daemon=True,
+        )
+        self.update_thread.start()
 
     def create_tray_icon(self):
         """
@@ -71,34 +80,24 @@ class App(ttk.Window):
 
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
 
-    def start_thread(self):
+    def start_processing_thread(self):
         """
         Start the background task in a separate thread.
         """
+
         # Stop the previous thread if it's running
-        if self.thread and self.thread.is_alive():
-            logging.warning("Thread is already running.")
-            self.stop_thread()
+        if self.processing_thread and self.processing_thread.is_alive():
+            self.processing_stop_event.set()
+            self.processing_thread.join()
 
         # Start a new thread
-        self.stop_event.clear()
-        self.thread = threading.Thread(
-            target=background_task,
-            args=(self.stop_event,),
+        self.processing_stop_event.clear()
+        self.processing_thread = threading.Thread(
+            target=task_processamento,
+            args=(self.processing_stop_event,),
             daemon=True,
         )
-        self.thread.start()
-
-    def stop_thread(self):
-        """
-        Stop the background task thread.
-        """
-        if self.thread and self.thread.is_alive():
-            logging.info("Stopping thread.")
-            self.stop_event.set()
-            self.thread.join()
-        else:
-            logging.warning("Thread is not running.")
+        self.processing_thread.start()
 
     def on_closing(self):
         """
@@ -120,13 +119,25 @@ class App(ttk.Window):
         """
         logger.debug("Exiting application.")
 
-        self.stop_thread()
+        # Stop the processing thread
+        if self.processing_thread and self.processing_thread.is_alive():
+            self.processing_stop_event.set()
+            self.processing_thread.join()
+
+        # Stop the Tray Icon thread
         if self.tray_icon:
             self.tray_icon.stop()
+
+        # Stop the update thread
+        if self.update_thread and self.update_thread.is_alive():
+            self.update_stop_event.set()
+            self.update_thread.join()
+
+        # Destroy the window
         self.destroy()
 
     def run(self):
-        init_db()
+        init_db()  # TODO: Não tenho certeza se é o local mais adequado para isso
         self.mainloop()
 
 

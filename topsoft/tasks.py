@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from time import sleep
 
@@ -9,7 +9,7 @@ import aiometer
 import httpx
 from pygtail import Pygtail
 
-from topsoft.constants import API_BASE_URL, OFFSET_PATH
+from topsoft.constants import API_BASE_URL, OFFSET_PATH, UPDATE_URL
 from topsoft.repository import (
     bulk_update_synced_acessos,
     get_not_synced_acessos,
@@ -22,11 +22,10 @@ from topsoft.settings import get_bilhetes_path, get_cutoff, get_interval
 logger = logging.getLogger(__name__)
 
 
-def get_reader(filepath):
-    return Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
+def task_processamento(stop_event):
+    def get_reader(filepath):
+        return Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
 
-
-def background_task(stop_event):
     def extract_ticket_records(filepath, cutoff=None, force_read=False):
         """
         Reads new lines from the bilhetes file since the last run (or since force_read),
@@ -240,7 +239,7 @@ def background_task(stop_event):
             if stop_event.is_set():
                 logger.info("Stopping background task")
                 return
-            logger.debug(f"Waiting for {intervalo - i} seconds")
+            logger.debug(f"Next processing in {intervalo - i} seconds")
             sleep(1)
 
     # Log the start of the task
@@ -279,3 +278,49 @@ def background_task(stop_event):
             logger.exception(e)
         finally:
             wait_for_interval()
+
+
+def task_update_checker(stop_event):
+    """
+    Check for updates and apply them.
+    """
+
+    def wait_until_next_hour():
+        """
+        Wait for the specified interval.
+        """
+
+        now = datetime.now()
+        next_hour = (now + timedelta(hours=1)).replace(
+            minute=0, second=0, microsecond=0
+        )
+        sleep_duration = int((next_hour - now).total_seconds())
+
+        for i in range(sleep_duration):
+            if stop_event.is_set():
+                logger.info("Stopping update task")
+                return
+            logger.debug(f"Next update check in {sleep_duration - i} seconds")
+            sleep(1)
+
+    while not stop_event.is_set():
+        try:
+            response = httpx.get(UPDATE_URL)
+
+            if response.status_code == 200:
+                json_data = response.json()
+                latest_version = json_data.get("tag_name", "0.0.0")
+
+                current_version = "0.0.0"  # Replace with your app's current version
+                # TODO: Get the current version from your app's settings (pyproject.toml)
+
+                if latest_version != current_version:
+                    logger.info(f"A new version ({latest_version}) is available!")
+                    # You can add logic to notify the user or download the update
+            else:
+                logger.warning(f"Failed to check for updates: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error while checking for updates")
+            logger.exception(e)
+        finally:
+            wait_until_next_hour()

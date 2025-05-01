@@ -14,3 +14,7 @@ API_BASE_URL = config(
 
 SETTINGS_FILE = config("SETTINGS_FILE", default="./settings.json")
 OFFSET_PATH = config("OFFSET_PATH", default="./bilhetes.offset")
+UPDATE_URL = config(
+    "UPDATE_URL",
+    default="https://api.github.com/repos/viniciusccosta/topsoft/releases/latest",
+)
