@@ -166,3 +166,80 @@ def get_acessos(offset=None, limit=None):
 
         acessos = session.exec(query).all()
         return acessos
+
+
+def get_alunos(sort_by=None, offset=None, limit=None):
+    """
+    Get all students from the database.
+    """
+    with Session(engine) as session:
+        alunos = session.exec(select(Aluno)).all()
+        if sort_by:
+            alunos = sorted(alunos, key=lambda x: getattr(x, sort_by))
+        return alunos
+
+
+def get_cartoes_acesso():
+    """
+    Get all access cards from the database.
+    """
+    with Session(engine) as session:
+        cartoes = session.exec(
+            select(CartaoAcesso).options(joinedload(CartaoAcesso.aluno))
+        ).all()
+        return cartoes
+
+
+def bind_cartao_acesso_to_aluno(cartao_acesso_id: int, aluno_id: int):
+    """
+    Bind a card to a student.
+    """
+    with Session(engine) as session:
+        cartao_acesso = session.get(CartaoAcesso, cartao_acesso_id)
+        aluno = session.get(Aluno, aluno_id)
+
+        if not cartao_acesso or not aluno:
+            logger.error("Card or student not found.")
+            return False
+
+        cartao_acesso.aluno_id = aluno.id
+        session.add(cartao_acesso)
+        session.commit()
+        return True
+
+
+def bind_matricula_to_cartao_acesso(cartao_numeracao: int, aluno_matricula: str):
+    """
+    Bind a card to a student by their registration number.
+    """
+    # with Session(engine) as session:
+    #     cartao_acesso = session.get(CartaoAcesso, cartao_acesso_id)
+    #     aluno = session.exec(
+    #         select(Aluno).where(Aluno.matricula == matricula)
+    #     ).first()
+
+    #     if not cartao_acesso or not aluno:
+    #         logger.error("Card or student not found.")
+    #         return False
+
+    #     cartao_acesso.aluno_id = aluno.id
+    #     session.add(cartao_acesso)
+    #     session.commit()
+    #     return True
+
+    with Session(engine) as session:
+        cartao = session.exec(
+            select(CartaoAcesso).where(CartaoAcesso.numeracao == cartao_numeracao)
+        ).first()
+
+        aluno = session.exec(
+            select(Aluno).where(Aluno.matricula == aluno_matricula)
+        ).first()
+
+        if cartao and aluno:
+            cartao.aluno_id = aluno.id
+            session.add(cartao)
+            session.commit()
+            return True
+
+    return False
