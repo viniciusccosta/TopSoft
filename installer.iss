@@ -6,6 +6,7 @@
 #define MyAppExeName "topsoft.exe"
 
 [Setup]
+AppId={{e7c0cd4d-2ecc-477d-8e97-b07ef1385874}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
