@@ -28,4 +28,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "^6.13.0"
+taskipy = "^1.14.1"
 
+[tool.taskipy.tasks]
+build_exe = "pyinstaller --onefile --noconsole --name topsoft main.py"
