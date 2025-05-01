@@ -18,7 +18,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=.
 OutputBaseFilename={#MyOutputBaseFilename}
-SetupIconFile=.\topsoft.ico
+SetupIconFile=topsoft.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -32,8 +32,8 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: ".\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: ".\topsoft.ico"; DestDir: "{app}"; Flags: ignoreversion;
+Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "topsoft.ico"; DestDir: "{app}"; Flags: ignoreversion;
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -52,3 +52,4 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Type: filesandordirs; Name: "{app}\*.log"
 Type: filesandordirs; Name: "{app}\topsoft.db"
 Type: filesandordirs; Name: "{app}\settings.json"
+Type: filesandordirs; Name: "{app}"
