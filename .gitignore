@@ -179,3 +179,4 @@ settings.json
 .DS_Store
 *.sqlite3
 *.offset
+*.exe
