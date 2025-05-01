@@ -3,11 +3,15 @@ import threading
 
 import ttkbootstrap as ttk
 from decouple import config
+from PIL import Image, ImageDraw
+from pystray import Icon, Menu, MenuItem
 from rich.logging import RichHandler
 
 from topsoft.db import init_db
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
 from topsoft.tasks import background_task
+
+logger = logging.getLogger(__name__)
 
 
 class App(ttk.Window):
@@ -43,6 +47,28 @@ class App(ttk.Window):
         # Windows Closing:
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        # System Tray:
+        self.tray_icon = None
+        self.create_tray_icon()
+
+    def create_tray_icon(self):
+        """
+        Create a system tray icon for the application.
+        """
+
+        image = Image.new("RGB", (64, 64), (255, 255, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((16, 16, 48, 48), fill="blue")
+
+        menu = Menu(
+            MenuItem("Show", self.show_window),
+            MenuItem("Exit", self.exit_app),
+        )
+
+        self.tray_icon = Icon("TopSoft", image, "TopSoft", menu)
+
+        self.tray_icon.run()
+
     def start_thread(self):
         """
         Start the background task in a separate thread.
@@ -77,17 +103,32 @@ class App(ttk.Window):
         Handle the window closing event.
         """
 
-        # TODO: Ask for confirmation before closing
+        self.withdraw()
+
+    def show_window(self):
+        """
+        Handle the window open event.
+        """
+
+        self.deiconify()
+
+    def exit_app(self):
+        """
+        Handle the exit event.
+        """
+        logger.debug("Exiting application.")
 
         self.stop_thread()
+        if self.tray_icon:
+            self.tray_icon.stop()
         self.destroy()
 
     def run(self):
+        init_db()
         self.mainloop()
 
 
 if __name__ == "__main__":
-    # TODO: SystemTray icon
     # TODO: Auto launch on startup
     # TODO: Auto check for updates
     # TODO: Create installation file
@@ -101,8 +142,6 @@ if __name__ == "__main__":
             )
         ],
     )
-
-    init_db()
 
     app = App()
     app.run()
