@@ -67,7 +67,7 @@ class App(ttk.Window):
 
         self.tray_icon = Icon("TopSoft", image, "TopSoft", menu)
 
-        self.tray_icon.run()
+        threading.Thread(target=self.tray_icon.run, daemon=True).start()
 
     def start_thread(self):
         """
