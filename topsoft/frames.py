@@ -5,7 +5,12 @@ import ttkbootstrap as ttk
 from ttkbootstrap.tableview import Tableview
 
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
-from topsoft.repository import get_acessos
+from topsoft.repository import (
+    bind_matricula_to_cartao_acesso,
+    get_acessos,
+    get_alunos,
+    get_cartoes_acesso,
+)
 from topsoft.secrets import get_api_key, set_api_key
 from topsoft.settings import (
     get_bilhetes_path,
@@ -19,8 +24,7 @@ from topsoft.settings import (
 
 class CartoesAcessoFrame(Frame):
     """
-    A class that represents a frame in a Tkinter application.
-    Inherits from the Tkinter Frame class.
+    A class that represents a frame for managing CartaoAcesso and binding them to Aluno.
     """
 
     def __init__(self, parent, controller, *args, **kwargs):
@@ -28,12 +32,114 @@ class CartoesAcessoFrame(Frame):
         Initializes the CartoesAcessoFrame instance.
 
         :param parent: The parent widget (usually a Tk or Toplevel instance).
+        :param controller: The controller for managing the application state.
         :param args: Additional positional arguments for the Frame.
         :param kwargs: Additional keyword arguments for the Frame.
         """
+
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
         self.controller = controller
+
+        # Define table columns
+        cols = [
+            {"text": "Cartão de Acesso", "stretch": True},
+            {"text": "Aluno (Nome/Matrícula)", "stretch": True},
+        ]
+
+        # Create the table
+        self.table = Tableview(
+            self,
+            coldata=cols,
+            paginated=False,
+            searchable=True,
+            autofit=True,
+            autoalign=False,
+        )
+        self.table.pack(expand=True, fill="both", padx=10, pady=10)
+
+        self.table.view.bind("<Double-1>", self.handle_row_double_click)
+
+        # Align headings to the center
+        for cid in self.table.cidmap:
+            self.table.align_heading_center(cid=cid)
+
+        # Populate the table with data
+        self.after(100, self.populate_table)
+        # self.populate_table()
+
+    def populate_table(self):
+        """
+        Populates the table with CartaoAcesso and their associated Aluno.
+        """
+        # Clear existing data
+        self.table.delete_rows(indices=None, iids=None)
+        # TODO: Just update without clearing the table
+
+        # Fetch all CartaoAcesso records with their associated Aluno
+        cartoes = get_cartoes_acesso()
+
+        # Populate the table
+        for i, cartao in enumerate(cartoes):
+            aluno_info = (
+                f"{cartao.aluno.nome} ({cartao.aluno.matricula})"
+                if cartao.aluno
+                else "Não vinculado"
+            )
+            self.table.insert_row("end", (cartao.numeracao, aluno_info))
+
+        self.table.load_table_data(clear_filters=False)
+
+    def handle_row_double_click(self, event, *args, **kwargs):
+        """
+        Handles the edit action when a user double-clicks a row.
+        """
+        # Get the selected row
+        selected_row = self.table.get_rows(selected=True)[0].values
+        cartao_numeracao = selected_row[0]
+        aluno_info = selected_row[1]
+
+        # Open a new window for editing
+        self.open_edit_window(cartao_numeracao, aluno_info)
+
+    def open_edit_window(self, cartao_numeracao, aluno_info):
+        """
+        Opens a new window to edit the binding of a CartaoAcesso to an Aluno.
+        """
+        edit_window = ttk.Toplevel(self)
+        edit_window.title("Editar Vinculação de Cartão")
+        edit_window.geometry("400x200")
+
+        # Display the current CartaoAcesso
+        ttk.Label(edit_window, text=f"Cartão de Acesso: {cartao_numeracao}").pack(
+            padx=10, pady=10
+        )
+
+        # Dropdown for selecting a new Aluno # TODO: Add a search filter
+        ttk.Label(edit_window, text="Vincular a Aluno:").pack(padx=10, pady=5)
+        aluno_var = ttk.StringVar()
+        aluno_dropdown = ttk.Combobox(edit_window, textvariable=aluno_var)
+        aluno_dropdown.pack(padx=10, pady=5)
+
+        # Fetch all Aluno records for the dropdown
+        alunos = get_alunos(sort_by="nome")
+        aluno_dropdown["values"] = [
+            f"{aluno.nome} ({aluno.matricula})" for aluno in alunos
+        ]
+
+        # Save button
+        def save_binding():
+            selected_aluno = aluno_dropdown.get()
+            if selected_aluno:
+                aluno_matricula = selected_aluno.split("(")[-1].strip(")")
+
+                if bind_matricula_to_cartao_acesso(cartao_numeracao, aluno_matricula):
+                    self.populate_table()
+                    edit_window.destroy()
+
+        ttk.Button(edit_window, text="Salvar", command=save_binding).pack(
+            padx=10, pady=10
+        )
 
 
 class AcessosFrame(Frame):
