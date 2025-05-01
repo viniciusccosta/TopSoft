@@ -1,3 +1,7 @@
+import sys
+from os import path
+
+
 def process_batch(batch):
     return [line.strip().split() for line in batch]
 
@@ -12,3 +16,12 @@ def read_in_batches(filename, batch_size=1000):
                 batch = []
         if batch:
             yield process_batch(batch)  # process the last batch
+
+
+def get_path(filename):
+    """
+    Get the correct path for a file, whether running in development or as a PyInstaller executable.
+    """
+    if hasattr(sys, "_MEIPASS"):
+        return path.realpath(path.join(sys._MEIPASS, filename))
+    return filename
