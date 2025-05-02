@@ -152,13 +152,15 @@ def configure_logger():
     file_handler = logging.FileHandler("topsoft.log")
     file_handler.setLevel(log_level)
     file_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"
+        )
     )
 
     console_handler = RichHandler(rich_tracebacks=True)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(message)s")
+        logging.Formatter("%(asctime)s - %(name)s - %(funcName)s - %(message)s")
     )
 
     # Logger:
