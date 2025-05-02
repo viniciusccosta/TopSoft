@@ -169,8 +169,6 @@ def configure_logger():
 
 
 if __name__ == "__main__":
-    # TODO: Auto check for updates
-
     configure_logger()
 
     app = App()
