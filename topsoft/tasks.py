@@ -1,13 +1,17 @@
 import asyncio
 import logging
 import os
+import subprocess
+import urllib.request
 from datetime import datetime, timedelta
 from functools import partial
 from time import sleep
 
 import aiometer
 import httpx
+from packaging import version
 from pygtail import Pygtail
+from ttkbootstrap.dialogs import Messagebox
 
 from topsoft.constants import API_BASE_URL, OFFSET_PATH, UPDATE_URL
 from topsoft.repository import (
@@ -18,6 +22,7 @@ from topsoft.repository import (
 )
 from topsoft.secrets import get_api_key
 from topsoft.settings import get_bilhetes_path, get_cutoff, get_interval
+from topsoft.utils import get_current_version
 
 logger = logging.getLogger(__name__)
 
@@ -309,14 +314,53 @@ def task_update_checker(stop_event):
 
             if response.status_code == 200:
                 json_data = response.json()
-                latest_version = json_data.get("tag_name", "0.0.0")
 
-                current_version = "0.0.0"  # Replace with your app's current version
-                # TODO: Get the current version from your app's settings (pyproject.toml)
+                if len(json_data) == 0:
+                    logger.warning("Empty response from update URL")
+                    continue
 
-                if latest_version != current_version:
-                    logger.info(f"A new version ({latest_version}) is available!")
-                    # You can add logic to notify the user or download the update
+                release = json_data
+                latest_version = version.parse(release["tag_name"])
+                assets = release["assets"]
+
+                current_version = version.parse(get_current_version())
+
+                logging.info(f"Versão mais recente: {latest_version}")
+                logging.info(f"Versão atual: {current_version}")
+
+                if latest_version > current_version and len(assets) > 0:
+                    logging.warning("Versão instalada não é a mais recente")
+
+                    atualizar = Messagebox.yesno(
+                        title="Atualização",
+                        message="Uma nova versão está disponível, deseja baixá-la?",
+                    )
+                    if atualizar:
+                        logging.info("Usuário decidiu instalar a nova versão")
+
+                        for asset in assets:
+                            url = asset["browser_download_url"]
+                            filename = asset["name"]
+
+                            if url.endswith(".exe"):
+                                # Baixando arquivo de atualização/instalação
+                                urllib.request.urlretrieve(url, filename)
+
+                                # Executando o arquivo de atualização/instalação
+                                subprocess.Popen(
+                                    [filename],
+                                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                                    | subprocess.DETACHED_PROCESS,
+                                    close_fds=True,
+                                )
+
+                                # TODO: Como o processo de desinstalação (dentro da instalação) irá matar o processo atual, provavelmente essas linhas não serão executadas
+                                Messagebox.show_info(
+                                    title="Fim da Atualização",
+                                    message="Abra o programa novamente!",
+                                )
+
+                                exit(0)
             else:
                 logger.warning(f"Failed to check for updates: {response.status_code}")
         except Exception as e:
