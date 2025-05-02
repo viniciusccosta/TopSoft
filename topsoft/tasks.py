@@ -13,7 +13,13 @@ from packaging import version
 from pygtail import Pygtail
 from ttkbootstrap.dialogs import Messagebox
 
-from topsoft.constants import API_BASE_URL, OFFSET_PATH, UPDATE_URL
+from topsoft.constants import (
+    API_BASE_URL,
+    MAX_AT_ONCE,
+    MAX_PER_SECOND,
+    OFFSET_PATH,
+    UPDATE_URL,
+)
 from topsoft.repository import (
     bulk_update_synced_acessos,
     get_not_synced_acessos,
@@ -174,25 +180,34 @@ def task_processamento(stop_event):
 
         logger.debug(f"Sending data to ActivitySoft: {len(bilhetes)} bilhetes")
 
-        # TODO: Necessário saber quais dados já foram enviados pra evitar duplicados no ActSoft ? Sim!
-
         # Header
         api_key = get_api_key()
         if not api_key:
             logger.error("API key not found")
             return False
 
-        headers = {"Authorization": api_key}
-
         # Payload and Request
-        async with httpx.AsyncClient(base_url=API_BASE_URL, headers=headers) as client:
+        async with httpx.AsyncClient(
+            base_url=API_BASE_URL,
+            headers={
+                "Authorization": api_key,
+            },
+        ) as client:
 
+            # Função para enviar os dados:
             async def post_data(acesso):
+                # Garantindo que o acesso não foi sincronizado:
                 try:
-                    acesso_dt = datetime.strptime(
-                        f"{acesso['date']} {acesso['time']}",
-                        "%d/%m/%y %H:%M",
-                    )
+                    if acesso.synced is True:
+                        logger.debug(f"Already synced: {acesso}")
+                        return None, None
+                except Exception as e:
+                    logger.error(f"Error checking sync status: {e}")
+                    return None, None
+
+                # Filtrando de acordo com Cutoff:
+                try:
+                    acesso_dt = datetime.combine(acesso.date, acesso.time)
                     cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y")
 
                     # Check if the timestamp is before the cutoff:
@@ -203,13 +218,14 @@ def task_processamento(stop_event):
                     logger.error(f"Error parsing date/time for cutoff: {e}")
                     return None, None
 
+                # Efetivando a requisição:
                 try:
                     response = await client.post(
                         "marcar_frequencia_aluno/",
                         json={
-                            "data_hora": f"{acesso['date']}T{acesso['time']}",
+                            "data_hora": f"{acesso_dt.strftime('%Y-%m-%dT%H:%M:%S')}",
                             "tipo_entrada_saidade": (
-                                "E" if acesso["marcacao"] == "010" else "S"
+                                "E" if acesso.marcacao == "010" else "S"
                             ),
                             "matricula": acesso.cartao_acesso.aluno.matricula,
                             "id_responsavel_acompanhante": None,
@@ -225,12 +241,14 @@ def task_processamento(stop_event):
 
                     return None, None
 
+            # Process the bilhetes in parallel:
             results = await aiometer.run_all(
                 [partial(post_data, bilhete) for bilhete in bilhetes],
-                max_at_once=500,  # TODO: Adjust based on your API/server capacity
-                max_per_second=1,  # TODO: Optional: rate-limit
+                max_at_once=MAX_AT_ONCE,
+                max_per_second=MAX_PER_SECOND,
             )
 
+        # Results:
         return results
 
     def wait_for_interval():
@@ -272,10 +290,10 @@ def task_processamento(stop_event):
                 acessos = get_not_synced_acessos()
 
                 # Envia dados, não sincronizados, para ActivitySoft:
-                # results = push_acessos_api(acessos)
+                results = push_acessos_api(acessos)
 
                 # Atualizar status dos bilhetes:
-                # bulk_update_synced_acessos(results)
+                bulk_update_synced_acessos(results)
 
                 # TODO: Atualizar interface gráfica
         except Exception as e:
