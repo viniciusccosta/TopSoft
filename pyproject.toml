@@ -1,6 +1,6 @@
 [project]
 name = "topsoft"
-version = "0.0.0"
+version = "0.0.1"
 description = "Integração entre as catracas Topdata e o ActivitySoft."
 authors = [
     {name = "viniciusccosta",email = "viniciusccosta95@gmail.com"}
@@ -34,3 +34,4 @@ taskipy = "^1.14.1"
 [tool.taskipy.tasks]
 build_exe = "pyinstaller --onefile --noconsole --name topsoft --icon=topsoft.ico --add-data topsoft.ico;. main.py"
 build_installer = "\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" installer.iss"
+build = "task build_exe && task build_installer"
