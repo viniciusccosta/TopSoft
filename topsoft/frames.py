@@ -2,6 +2,7 @@ from datetime import datetime
 from tkinter import Frame, filedialog
 
 import ttkbootstrap as ttk
+from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
@@ -397,5 +398,11 @@ class ConfigurationFrame(Frame):
         set_api_key(activitysoft_key)
         set_cutoff(cutoff)
 
-        # TODO: Kill the background task and restart it with the new settings
-        self.controller.start_thread()
+        # Update the settings in the controller
+        self.controller.start_processing_thread()
+
+        # Show a success message
+        Messagebox().show_info(
+            title="Configurações Salvas",
+            message="As configurações foram salvas com sucesso!",
+        )
