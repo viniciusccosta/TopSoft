@@ -53,14 +53,14 @@ def read_bilhetes_file(
     parses each record, and returns a list of Acesso objects.
     """
 
-    logging.debug(f"Reading bilhetes file: {filepath} (force_read={force_read})")
+    logger.debug(f"Reading bilhetes file: {filepath} (force_read={force_read})")
     tickets = []
 
     # If forcing full re-read, delete the offset file
     if force_read:
         try:
             os.remove(OFFSET_PATH)
-            logging.info("Offset file removed; full file will be re-read.")
+            logger.info("Offset file removed; full file will be re-read.")
         except FileNotFoundError:
             pass
 
@@ -76,7 +76,7 @@ def read_bilhetes_file(
         # Skip empty lines
         parts = raw_line.strip().split()
         if len(parts) < 5:
-            logging.warning(f"Skipping malformed line: {raw_line!r}")
+            logger.warning(f"Skipping malformed line: {raw_line!r}")
             continue
 
         # Parse the timestamp from the line
@@ -85,7 +85,7 @@ def read_bilhetes_file(
                 f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M"
             )
         except ValueError:
-            logging.warning(f"Invalid timestamp in line: {raw_line!r}")
+            logger.warning(f"Invalid timestamp in line: {raw_line!r}")
             continue
 
         # If cutoff is set, skip records older than the cutoff
@@ -105,8 +105,8 @@ def read_bilhetes_file(
             )
             tickets.append(ticket)
         except Exception as e:
-            logging.warning(f"Error reading line: {raw_line!r}")
-            logging.exception(e)
+            logger.warning(f"Error reading line: {raw_line!r}")
+            logger.exception(e)
             continue
 
     # Return the list of tickets

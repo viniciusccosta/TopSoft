@@ -104,18 +104,18 @@ def task_update_checker(stop_event):
 
                 current_version = version.parse(get_current_version())
 
-                logging.info(f"Versão mais recente: {latest_version}")
-                logging.info(f"Versão atual: {current_version}")
+                logger.info(f"Versão mais recente: {latest_version}")
+                logger.info(f"Versão atual: {current_version}")
 
                 if latest_version > current_version and len(assets) > 0:
-                    logging.warning("Versão instalada não é a mais recente")
+                    logger.warning("Versão instalada não é a mais recente")
 
                     atualizar = Messagebox.yesno(
                         title="Atualização",
                         message="Uma nova versão está disponível, deseja baixá-la?",
                     )
                     if atualizar:
-                        logging.info("Usuário decidiu instalar a nova versão")
+                        logger.info("Usuário decidiu instalar a nova versão")
 
                         for asset in assets:
                             url = asset["browser_download_url"]
