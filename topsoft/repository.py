@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import joinedload
 from sqlmodel import Session, select
 
-from topsoft.db import engine
+from topsoft.database import engine
 from topsoft.models import Acesso, Aluno, CartaoAcesso
 
 logger = logging.getLogger(__name__)

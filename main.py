@@ -6,7 +6,7 @@ from PIL import Image
 from pystray import Icon, Menu, MenuItem
 
 from topsoft.config import configure_logger
-from topsoft.db import init_db
+from topsoft.database import init_db
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
 from topsoft.tasks import task_processamento, task_update_checker
 from topsoft.utils import get_path
@@ -135,12 +135,12 @@ class App(ttk.Window):
         self.destroy()
 
     def run(self):
-        init_db()  # TODO: Não tenho certeza se é o local mais adequado para isso
         self.mainloop()
 
 
 if __name__ == "__main__":
     configure_logger()
+    init_db()  # TODO: Não tenho certeza se é o local mais adequado para isso
 
     app = App()
     app.run()

@@ -1,4 +1,3 @@
-# topsoft/db.py
 from sqlmodel import create_engine
 
 from topsoft.models import SQLModel
