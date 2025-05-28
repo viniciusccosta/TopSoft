@@ -96,22 +96,19 @@ async def post_acesso(client, acesso):
     """
 
     # If already synced, skip posting:
-    try:
-        if acesso.synced is True:
-            return None, None
-    except Exception as e:
-        logger.error(f"Error checking sync status: {e}")
+    if acesso.synced is True:
         return None, None
 
     # If access record is not valid, skip posting:
-    try:
-        acesso_dt = datetime.combine(acesso.date, acesso.time)
-        cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y")
+    acesso_dt = datetime.combine(acesso.date, acesso.time)
+    cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y")
 
-        if acesso_dt < cutoff:
-            return None, None
-    except Exception as e:
-        logger.error(f"Error parsing date/time for cutoff: {e}")
+    if acesso_dt < cutoff:
+        return None, None
+
+    # Ignore acesso where there is not aluno associated with the card:
+    if not acesso.cartao_acesso or not acesso.cartao_acesso.aluno:
+        # logger.warning(f"Access record {acesso.id} has no associated student.")
         return None, None
 
     # API Request to post data:
@@ -121,7 +118,7 @@ async def post_acesso(client, acesso):
             "marcar_frequencia_aluno/",
             json={
                 "data_hora": f"{acesso_dt.strftime('%Y-%m-%dT%H:%M:%S')}",
-                "tipo_entrada_saidade": ("E" if acesso.marcacao == "010" else "S"),
+                "tipo_entrada_saida": ("E" if acesso.marcacao == "010" else "S"),
                 "matricula": acesso.cartao_acesso.aluno.matricula,
                 "id_responsavel_acompanhante": None,
                 "comentario": None,
