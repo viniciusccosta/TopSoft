@@ -50,9 +50,15 @@ def task_processamento(stop_event):
             # Filter out old records based on cutoff:
             cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
             acessos = [a for a in acessos if a.date > cutoff]
+            logger.info(f"Filtered {len(acessos)} access records after cutoff date")
 
             # Send bilhetes to API:
             results = asyncio.run(post_acessos(acessos))
+
+            # Filter out non success results:
+            results = [r for r in results if r is not None]
+
+            # TODO: Update each acesso as soon as the request it's done instead of bulk update...
 
             # Bulk update access records based on API response:
             bulk_update_synced_acessos(results)
@@ -87,8 +93,7 @@ def task_update_checker(stop_event):
                 continue
 
             # Extract the latest release information:
-            release = json_data[0]
-            latest_version = version.parse(release["tag_name"])
+            latest_version = version.parse(json_data["tag_name"])
 
             # Get the current version from the settings:
             current_version = version.parse(get_current_version())
