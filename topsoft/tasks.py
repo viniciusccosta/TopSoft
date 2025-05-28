@@ -1,9 +1,5 @@
 import asyncio
 import logging
-import subprocess
-import urllib.request
-from datetime import datetime, timedelta
-from time import sleep
 
 import httpx
 from packaging import version
@@ -13,7 +9,12 @@ from topsoft.activitysoft.api import post_acessos, sync_students
 from topsoft.constants import UPDATE_URL
 from topsoft.repository import bulk_update_synced_acessos, get_not_synced_acessos
 from topsoft.settings import get_bilhetes_path
-from topsoft.utils import get_current_version, read_bilhetes_file, wait_for_interval
+from topsoft.utils import (
+    get_current_version,
+    read_bilhetes_file,
+    wait_for_interval,
+    wait_until_next_hour,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,24 +70,6 @@ def task_update_checker(stop_event):
     Check for updates and apply them.
     """
 
-    def wait_until_next_hour():
-        """
-        Wait for the specified interval.
-        """
-
-        now = datetime.now()
-        next_hour = (now + timedelta(hours=1)).replace(
-            minute=0, second=0, microsecond=0
-        )
-        sleep_duration = int((next_hour - now).total_seconds())
-
-        for i in range(sleep_duration):
-            if stop_event.is_set():
-                logger.info("Stopping update task")
-                return
-            logger.debug(f"Next update check in {sleep_duration - i} seconds")
-            sleep(1)
-
     while not stop_event.is_set():
         try:
             response = httpx.get(UPDATE_URL)
@@ -108,42 +91,16 @@ def task_update_checker(stop_event):
                 logger.info(f"Versão atual: {current_version}")
 
                 if latest_version > current_version and len(assets) > 0:
+                    # TODO: Differentiate between Windows/Linux/MacOS versions
                     logger.warning("Versão instalada não é a mais recente")
 
-                    atualizar = Messagebox.yesno(
-                        title="Atualização",
-                        message="Uma nova versão está disponível, deseja baixá-la?",
+                    Messagebox.show_info(
+                        title="Atualização", message="Uma nova versão está disponível."
                     )
-                    if atualizar:
-                        logger.info("Usuário decidiu instalar a nova versão")
-
-                        for asset in assets:
-                            url = asset["browser_download_url"]
-                            filename = asset["name"]
-
-                            if url.endswith(".exe"):
-                                # Baixando arquivo de atualização/instalação
-                                urllib.request.urlretrieve(url, filename)
-
-                                # Executando o arquivo de atualização/instalação
-                                subprocess.Popen(
-                                    [filename],
-                                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                                    | subprocess.DETACHED_PROCESS,
-                                    close_fds=True,
-                                )
-
-                                # TODO: Como o processo de desinstalação (dentro da instalação) irá matar o processo atual, provavelmente essas linhas não serão executadas
-                                Messagebox.show_info(
-                                    title="Fim da Atualização",
-                                    message="Abra o programa novamente!",
-                                )
-
-                                exit(0)
             else:
                 logger.warning(f"Failed to check for updates: {response.status_code}")
         except Exception as e:
             logger.error(f"Error while checking for updates")
             logger.exception(e)
         finally:
-            wait_until_next_hour()
+            wait_until_next_hour(stop_event)

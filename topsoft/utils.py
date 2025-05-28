@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import path
 from time import sleep
 from typing import List
@@ -120,4 +120,22 @@ def wait_for_interval(stop_event):
             logger.info("Stopping background task")
             return
         logger.debug(f"Next processing in {intervalo - i} seconds")
+        sleep(1)
+
+
+def wait_until_next_hour(stop_event):
+    """
+    Wait for the specified interval.
+    """
+
+    now = datetime.now()
+    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    sleep_duration = int((next_hour - now).total_seconds())
+
+    for i in range(sleep_duration):
+        if stop_event.is_set():
+            logger.info("Stopping update task")
+            return
+
+        logger.debug(f"Next update check in {sleep_duration - i} seconds")
         sleep(1)
