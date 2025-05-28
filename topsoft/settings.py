@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 sdb = PickleDB(SETTINGS_FILE)
 
+# TODO: Instead of using PickleDB, just add a settings table to the database !
+
 
 def get_or_set(key: str, default):
     with sdb:
@@ -43,7 +45,7 @@ def set_interval(interval: int) -> None:
 
 
 def get_cutoff():
-    return get_or_set("cutoff", "01/01/2025")
+    return get_or_set("cutoff", "01/05/2025")
 
 
 def set_cutoff(cutoff):
