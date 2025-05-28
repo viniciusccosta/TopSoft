@@ -12,9 +12,7 @@ from topsoft.constants import (
 logger = logging.getLogger(__name__)
 
 
-sdb = PickleDB(
-    SETTINGS_FILE,
-)
+sdb = PickleDB(SETTINGS_FILE)
 
 
 def get_or_set(key: str, default):
