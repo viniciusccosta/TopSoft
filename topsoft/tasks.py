@@ -26,12 +26,8 @@ def task_processamento(stop_event):
     """
 
     logger.info("Starting background task")
-    cnt = 1
 
     while not stop_event.is_set():
-        logger.info(f"Running background task {cnt}")
-        cnt += 1
-
         try:
             # Bilhetes path:
             bilhetes_path = get_bilhetes_path()
@@ -52,9 +48,8 @@ def task_processamento(stop_event):
             # Filter out already synced access records:
             acessos = get_not_synced_acessos()
 
-            # Filter out old records based on cutoff time:
-            cutoff = get_cutoff()
-            cutoff = datetime.strptime(cutoff, "%d/%m/%Y").date()
+            # Filter out old records based on cutoff:
+            cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
             acessos = [a for a in acessos if a.date > cutoff]
 
             # Send bilhetes to API:
@@ -63,7 +58,7 @@ def task_processamento(stop_event):
             # Bulk update access records based on API response:
             bulk_update_synced_acessos(results)
 
-            # TODO: Atualizar interface gráfica
+            # TODO: Atualizar interface gráfica usando queue para comunicação
         except Exception as e:
             logger.warning("Error na execução da tarefa")
             logger.exception(e)
@@ -78,33 +73,37 @@ def task_update_checker(stop_event):
 
     while not stop_event.is_set():
         try:
+            # Fetch the latest release information from the update URL:
             response = httpx.get(UPDATE_URL)
 
-            if response.status_code == 200:
-                json_data = response.json()
-
-                if len(json_data) == 0:
-                    logger.warning("Empty response from update URL")
-                    continue
-
-                release = json_data
-                latest_version = version.parse(release["tag_name"])
-                assets = release["assets"]
-
-                current_version = version.parse(get_current_version())
-
-                logger.info(f"Versão mais recente: {latest_version}")
-                logger.info(f"Versão atual: {current_version}")
-
-                if latest_version > current_version and len(assets) > 0:
-                    # TODO: Differentiate between Windows/Linux/MacOS versions
-                    logger.warning("Versão instalada não é a mais recente")
-
-                    Messagebox.show_info(
-                        title="Atualização", message="Uma nova versão está disponível."
-                    )
-            else:
+            # Check if the response is successful:
+            if response.status_code != 200:
                 logger.warning(f"Failed to check for updates: {response.status_code}")
+                continue
+
+            # Parse the JSON response:
+            json_data = response.json()
+            if len(json_data) == 0:
+                logger.warning("Empty response from update URL")
+                continue
+
+            # Extract the latest release information:
+            release = json_data[0]
+            latest_version = version.parse(release["tag_name"])
+
+            # Get the current version from the settings:
+            current_version = version.parse(get_current_version())
+
+            if latest_version > current_version:
+                # TODO: Differentiate between Windows/Linux/MacOS versions
+                logger.warning("Versão instalada não é a mais recente")
+                logger.warning(f"Versão mais recente: {latest_version}")
+                logger.warning(f"Versão atual: {current_version}")
+
+                # TODO: Messabox from separated thread ?
+                Messagebox.show_info(
+                    title="Atualização", message="Uma nova versão está disponível."
+                )
         except Exception as e:
             logger.error(f"Error while checking for updates")
             logger.exception(e)
