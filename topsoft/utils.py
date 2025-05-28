@@ -21,6 +21,7 @@ def get_path(filename):
     """
     Get the correct path for a file, whether running in development or as a PyInstaller executable.
     """
+
     if hasattr(sys, "_MEIPASS"):
         return path.realpath(path.join(sys._MEIPASS, filename))
     return filename
@@ -30,6 +31,7 @@ def get_current_version():
     """
     Get the current version of the application from pyproject.toml.
     """
+
     try:
         with open("pyproject.toml", "r", encoding="utf-8") as f:
             pyproject_data = toml.load(f)
@@ -43,10 +45,7 @@ def get_current_version():
 
 
 def read_bilhetes_file(
-    filepath,
-    stop_event,
-    cutoff=None,
-    force_read=False,
+    filepath, stop_event, cutoff=None, force_read=False
 ) -> List["Acesso"]:
     """
     Reads new lines from the bilhetes file since the last run (or since force_read),
@@ -114,11 +113,17 @@ def read_bilhetes_file(
 
 
 def wait_for_interval(stop_event):
+    """
+    Wait for the specified interval before the next processing cycle.
+    """
+
     intervalo = get_interval() * 60
+
     for i in range(intervalo):
         if stop_event.is_set():
             logger.info("Stopping background task")
             return
+
         logger.debug(f"Next processing in {intervalo - i} seconds")
         sleep(1)
 
