@@ -2,11 +2,10 @@ import logging
 import threading
 
 import ttkbootstrap as ttk
-from decouple import config
 from PIL import Image
 from pystray import Icon, Menu, MenuItem
-from rich.logging import RichHandler
 
+from topsoft.config import configure_logger
 from topsoft.db import init_db
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
 from topsoft.tasks import task_processamento, task_update_checker
@@ -117,7 +116,6 @@ class App(ttk.Window):
         """
         Handle the exit event.
         """
-        logger.debug("Exiting application.")
 
         # Stop the processing thread
         if self.processing_thread and self.processing_thread.is_alive():
@@ -139,35 +137,6 @@ class App(ttk.Window):
     def run(self):
         init_db()  # TODO: Não tenho certeza se é o local mais adequado para isso
         self.mainloop()
-
-
-def configure_logger():
-    """
-    Configure the logger for the application.
-    """
-
-    log_level = config("LOGGING_LEVEL", default=logging.INFO)
-
-    # Handlers:
-    file_handler = logging.FileHandler("topsoft.log")
-    file_handler.setLevel(log_level)
-    file_handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s"
-        )
-    )
-
-    console_handler = RichHandler(rich_tracebacks=True)
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(funcName)s - %(message)s")
-    )
-
-    # Logger:
-    logging.basicConfig(
-        level=log_level,
-        handlers=[console_handler, file_handler],
-    )
 
 
 if __name__ == "__main__":
