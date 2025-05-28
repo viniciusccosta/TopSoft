@@ -1,8 +1,18 @@
 import logging
+import os
 import sys
+from datetime import datetime
 from os import path
+from time import sleep
+from typing import List
 
 import toml
+from pygtail import Pygtail
+
+from topsoft.constants import OFFSET_PATH
+from topsoft.models import Acesso
+from topsoft.repository import process_turnstile_event
+from topsoft.settings import get_interval
 
 logger = logging.getLogger(__name__)
 
@@ -30,3 +40,84 @@ def get_current_version():
         logger.error(f"Error reading pyproject.toml: {e}")
 
     return "0.0.0"
+
+
+def read_bilhetes_file(
+    filepath,
+    stop_event,
+    cutoff=None,
+    force_read=False,
+) -> List["Acesso"]:
+    """
+    Reads new lines from the bilhetes file since the last run (or since force_read),
+    parses each record, and returns a list of Acesso objects.
+    """
+
+    logging.debug(f"Reading bilhetes file: {filepath} (force_read={force_read})")
+    tickets = []
+
+    # If forcing full re-read, delete the offset file
+    if force_read:
+        try:
+            os.remove(OFFSET_PATH)
+            logging.info("Offset file removed; full file will be re-read.")
+        except FileNotFoundError:
+            pass
+
+    # Read the file using Pygtail:
+    reader = Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
+
+    for n, raw_line in enumerate(reader):
+        # Check if the stop event is set to stop processing
+        if stop_event.is_set():
+            logger.info("Stopping extraction of bilhetes")
+            return tickets
+
+        # Skip empty lines
+        parts = raw_line.strip().split()
+        if len(parts) < 5:
+            logging.warning(f"Skipping malformed line: {raw_line!r}")
+            continue
+
+        # Parse the timestamp from the line
+        try:
+            parsed_timestamp = datetime.strptime(
+                f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M"
+            )
+        except ValueError:
+            logging.warning(f"Invalid timestamp in line: {raw_line!r}")
+            continue
+
+        # If cutoff is set, skip records older than the cutoff
+        if cutoff and parsed_timestamp < cutoff:
+            continue
+
+        # Create a ticket record from the parts (into database):
+        try:
+            ticket = process_turnstile_event(
+                {
+                    "marcacao": parts[0],
+                    "date": parts[1],
+                    "time": parts[2],
+                    "cartao": parts[3],
+                    "catraca": parts[4],
+                }
+            )
+            tickets.append(ticket)
+        except Exception as e:
+            logging.warning(f"Error reading line: {raw_line!r}")
+            logging.exception(e)
+            continue
+
+    # Return the list of tickets
+    return tickets
+
+
+def wait_for_interval(stop_event):
+    intervalo = get_interval() * 60
+    for i in range(intervalo):
+        if stop_event.is_set():
+            logger.info("Stopping background task")
+            return
+        logger.debug(f"Next processing in {intervalo - i} seconds")
+        sleep(1)
