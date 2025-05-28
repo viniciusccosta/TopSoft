@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 
 import httpx
 from packaging import version
@@ -8,7 +9,7 @@ from ttkbootstrap.dialogs import Messagebox
 from topsoft.activitysoft.api import post_acessos, sync_students
 from topsoft.constants import UPDATE_URL
 from topsoft.repository import bulk_update_synced_acessos, get_not_synced_acessos
-from topsoft.settings import get_bilhetes_path
+from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
     get_current_version,
     read_bilhetes_file,
@@ -50,6 +51,11 @@ def task_processamento(stop_event):
 
             # Filter out already synced access records:
             acessos = get_not_synced_acessos()
+
+            # Filter out old records based on cutoff time:
+            cutoff = get_cutoff()
+            cutoff = datetime.strptime(cutoff, "%d/%m/%Y").date()
+            acessos = [a for a in acessos if a.date > cutoff]
 
             # Send bilhetes to API:
             results = asyncio.run(post_acessos(acessos))
