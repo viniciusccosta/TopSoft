@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from typing import List
 
 from sqlalchemy.orm import joinedload
 from sqlmodel import Session, select
@@ -12,8 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 def update_student_records(alunos_json):
-    logger.debug(f"Updating student records")
-
     with Session(engine) as session:
         for data in alunos_json:
             # convert date string to datetime if needed
@@ -43,7 +40,7 @@ def update_student_records(alunos_json):
     logger.info(f"Synced {len(alunos_json)} alunos.")
 
 
-def process_turnstile_event(event: dict):
+def process_turnstile_event(event: dict) -> Acesso:
     """
     event = {
         "marcacao": "010",
@@ -53,8 +50,6 @@ def process_turnstile_event(event: dict):
         "catraca": "03"
     }
     """
-
-    # logger.debug(f"Processing event: {event}")
 
     with Session(engine) as session:
         # Convert date and time strings to datetime objects
@@ -90,9 +85,11 @@ def process_turnstile_event(event: dict):
             )
         ).first()
 
+        # If access record already exists, return it
         if acesso:
             return acesso
 
+        # If access record does not exist, create a new one and return it
         acesso = Acesso(
             marcacao=event["marcacao"],
             date=date_obj,
@@ -103,8 +100,6 @@ def process_turnstile_event(event: dict):
         )
         session.add(acesso)
         session.commit()
-
-        # Return the created access record
         return acesso
 
 
