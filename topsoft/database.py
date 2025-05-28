@@ -6,5 +6,5 @@ DATABASE_URL = "sqlite:///topsoft.db"
 engine = create_engine(DATABASE_URL, echo=False)
 
 
-def init_db() -> None:
+def configure_database() -> None:
     SQLModel.metadata.create_all(engine)
