@@ -9,9 +9,10 @@ from typing import List
 import toml
 from pygtail import Pygtail
 
+from topsoft.activitysoft.api import fetch_students
 from topsoft.constants import OFFSET_PATH
 from topsoft.models import Acesso
-from topsoft.repository import process_turnstile_event
+from topsoft.repository import process_turnstile_event, update_student_records
 from topsoft.settings import get_interval
 
 logger = logging.getLogger(__name__)
@@ -144,3 +145,27 @@ def wait_until_next_hour(stop_event):
 
         logger.debug(f"Next update check in {sleep_duration - i} seconds")
         sleep(1)
+
+
+def sync_students():
+    """
+    Update the students in the database by fetching and syncing data from the API.
+    """
+    logger.info("Starting student data synchronization")
+
+    # Fetch students from the API:
+    students_data = fetch_students()
+
+    # If fetching failed, log the error and return
+    if students_data is None:
+        logger.error("Failed to fetch students from the API")
+        return False
+
+    # Update database with the fetched student data:
+    try:
+        update_student_records(students_data)
+        logger.info("Student data synchronization completed successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to sync students: {e}")
+        return False

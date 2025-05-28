@@ -6,7 +6,6 @@ import aiometer
 import httpx
 
 from topsoft.constants import API_BASE_URL, MAX_AT_ONCE, MAX_PER_SECOND
-from topsoft.repository import update_student_records
 from topsoft.secrets import get_api_key
 from topsoft.settings import get_cutoff
 
@@ -19,7 +18,10 @@ def fetch_students():
         logger.error("API key not found")
         return None
 
+    # Set up the headers for the API request:
     headers = {"Authorization": api_key}
+
+    # Attempt to fetch the list of students from the API:
     try:
         with httpx.Client(base_url=API_BASE_URL, headers=headers) as client:
             response = client.get("lista_alunos/")
@@ -32,31 +34,9 @@ def fetch_students():
         logger.error(f"Request error while fetching students: {e}")
     except Exception as e:
         logger.error(f"Unexpected error while fetching students: {e}")
+
+    # If the request fails, return None:
     return None
-
-
-def sync_students():
-    """
-    Update the students in the database by fetching and syncing data from the API.
-    """
-    logger.info("Starting student data synchronization")
-
-    # Fetch students from the API:
-    students_data = fetch_students()
-
-    # If fetching failed, log the error and return
-    if students_data is None:
-        logger.error("Failed to fetch students from the API")
-        return False
-
-    # Update database with the fetched student data:
-    try:
-        update_student_records(students_data)
-        logger.info("Student data synchronization completed successfully")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to sync students: {e}")
-        return False
 
 
 async def post_acessos(bilhetes):

@@ -6,13 +6,14 @@ import httpx
 from packaging import version
 from ttkbootstrap.dialogs import Messagebox
 
-from topsoft.activitysoft.api import post_acessos, sync_students
+from topsoft.activitysoft.api import post_acessos
 from topsoft.constants import UPDATE_URL
 from topsoft.repository import bulk_update_synced_acessos, get_not_synced_acessos
 from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
     get_current_version,
     read_bilhetes_file,
+    sync_students,
     wait_for_interval,
     wait_until_next_hour,
 )
@@ -33,13 +34,11 @@ def task_processamento(stop_event):
             bilhetes_path = get_bilhetes_path()
             if not bilhetes_path:
                 logger.warning("Bilhetes path not found")
-                wait_for_interval(stop_event)
                 continue
 
             # Force sync of students:
             if not sync_students():
                 logger.error("Failed to update students")
-                wait_for_interval(stop_event)
                 continue
 
             # Read and process ticket records (from bilhetes file into database):
