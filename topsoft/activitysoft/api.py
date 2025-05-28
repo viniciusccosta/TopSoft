@@ -12,18 +12,28 @@ from topsoft.settings import get_cutoff
 logger = logging.getLogger(__name__)
 
 
-def fetch_students():
+def get_header():
+    """
+    Get the header for the API request.
+    This function retrieves the API key from the secrets and returns it in the required format.
+    """
+
     api_key = get_api_key()
     if not api_key:
         logger.error("API key not found")
-        return None
+        raise ValueError("API key is required for API requests")
 
-    # Set up the headers for the API request:
-    headers = {"Authorization": api_key}
+    return {
+        "Authorization": api_key,
+    }
+
+
+def fetch_students():
+    # TODO: stop_event to stop the task gracefully
 
     # Attempt to fetch the list of students from the API:
     try:
-        with httpx.Client(base_url=API_BASE_URL, headers=headers) as client:
+        with httpx.Client(base_url=API_BASE_URL, headers=get_header()) as client:
             response = client.get("lista_alunos/")
             response.raise_for_status()
             if response.status_code != 200:
@@ -47,15 +57,12 @@ async def post_acessos(bilhetes):
     It returns a list of results containing the access records and their corresponding status codes.
     """
 
-    # API Key:
-    api_key = get_api_key()
-    if not api_key:
-        logger.error("API key not found")
-        return False
+    # TODO: stop_event to stop the task gracefully
 
     # Concurrently post data to the API:
     async with httpx.AsyncClient(
-        base_url=API_BASE_URL, headers={"Authorization": api_key}
+        base_url=API_BASE_URL,
+        headers=get_header(),
     ) as client:
         results = await aiometer.run_all(
             [partial(post_acesso, client, bilhete) for bilhete in bilhetes],
@@ -63,6 +70,8 @@ async def post_acessos(bilhetes):
             max_per_second=MAX_PER_SECOND,
         )
         # TODO: Update database for each result
+
+    # TODO: Map each acesso to request, so "post_acesso" just return True/False
 
     # Return the results
     return results
@@ -77,19 +86,19 @@ async def post_acesso(client, acesso):
 
     # If already synced, skip posting:
     if acesso.synced is True:
-        return None, None
+        return None
 
     # If access record is not valid, skip posting:
     acesso_dt = datetime.combine(acesso.date, acesso.time)
     cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y")
 
     if acesso_dt < cutoff:
-        return None, None
+        return None
 
     # Ignore acesso where there is not aluno associated with the card:
     if not acesso.cartao_acesso or not acesso.cartao_acesso.aluno:
-        # logger.warning(f"Access record {acesso.id} has no associated student.")
-        return None, None
+        logger.warning(f"Access record {acesso.id} has no associated student.")
+        return None
 
     # API Request to post data:
     try:
@@ -108,9 +117,12 @@ async def post_acesso(client, acesso):
         # Raise an error if the request was not successful:
         response.raise_for_status()
 
-        # Return the access record and its status code:
-        return acesso, response.status_code
+        # Return acesso if successful:
+        if response.status_code == 200:
+            # Return the access record and its status code:
+            return acesso
     except Exception as e:
         logger.error(f"Failed to send payload {acesso}")
         logger.exception(e)
-        return None, None
+
+    return None
