@@ -103,7 +103,7 @@ def process_turnstile_event(event: dict) -> Acesso:
         return acesso
 
 
-def bulk_update_synced_acessos(results):
+def bulk_update_synced_acessos(acessos):
     """
     Bulk update the access records in the database.
 
@@ -121,13 +121,12 @@ def bulk_update_synced_acessos(results):
         500: Internal Server Error
     """
     with Session(engine) as session:
-        # TODO: Update "synced" field in bulk based on the results
-        for status, acesso in results:
-            if status == 200:
-                acesso.synced = True
-                session.add(acesso)
+        for acesso in acessos:
+            acesso.synced = True
+            session.add(acesso)
+
         session.commit()
-        logger.info(f"Updated {len(results)} access records as synced.")
+        logger.info(f"Updated {len(acessos)} access records as synced.")
 
 
 def get_not_synced_acessos():
