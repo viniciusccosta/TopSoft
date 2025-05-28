@@ -132,11 +132,16 @@ def bulk_update_synced_acessos(results):
 
 def get_not_synced_acessos():
     """
-    Get all access records that are not synced.
+    Get all access records that are not synced, with related cartao_acesso and aluno eagerly loaded.
     """
 
     with Session(engine) as session:
-        acessos = session.exec(select(Acesso).where(Acesso.synced == False)).all()
+        acessos = session.exec(
+            select(Acesso)
+            .where(Acesso.synced == False)
+            .options(joinedload(Acesso.cartao_acesso).joinedload(CartaoAcesso.aluno))
+        ).all()
+
         return acessos
 
 
