@@ -175,7 +175,7 @@ def sync_students():
         return False
 
 
-async def post_acessos_and_update_synced_status(bilhetes, queue=None):
+async def post_acessos_and_update_synced_status(bilhetes, queue):
     """
     Consume the access records and process them.
     This function is called by the main task to handle the access records.
@@ -185,5 +185,4 @@ async def post_acessos_and_update_synced_status(bilhetes, queue=None):
         acesso, success = result
         if success:
             update_acesso(acesso.id, synced=True)
-            if queue:
-                queue.put(result)
+            queue.put(result)
