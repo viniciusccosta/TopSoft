@@ -9,10 +9,14 @@ from typing import List
 import toml
 from pygtail import Pygtail
 
-from topsoft.activitysoft.api import fetch_students
+from topsoft.activitysoft.api import fetch_students, post_acessos
 from topsoft.constants import OFFSET_PATH
 from topsoft.models import Acesso
-from topsoft.repository import process_turnstile_event, update_student_records
+from topsoft.repository import (
+    process_turnstile_event,
+    update_acesso,
+    update_student_records,
+)
 from topsoft.settings import get_interval
 
 logger = logging.getLogger(__name__)
@@ -53,7 +57,7 @@ def read_bilhetes_file(
     parses each record, and returns a list of Acesso objects.
     """
 
-    logger.debug(f"Reading bilhetes file: {filepath} (force_read={force_read})")
+    # Variables:
     tickets = []
 
     # If forcing full re-read, delete the offset file
@@ -169,3 +173,17 @@ def sync_students():
     except Exception as e:
         logger.error(f"Failed to sync students: {e}")
         return False
+
+
+async def post_acessos_and_update_synced_status(bilhetes, queue=None):
+    """
+    Consume the access records and process them.
+    This function is called by the main task to handle the access records.
+    """
+
+    async for result in post_acessos(bilhetes):
+        acesso, success = result
+        if success:
+            update_acesso(acesso.id, synced=True)
+            if queue:
+                queue.put(result)
