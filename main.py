@@ -111,19 +111,11 @@ class App(ttk.Window):
         This method can be used to update the UI or perform actions based on the queue.
         """
 
-        # Stop watching if the stop event is set
-        if self.processing_stop_event.is_set():
-            return
-
         # Read from the queue without blocking
         try:
             result = self.processing_queue.get_nowait()
             acesso, success = result
-
-            if type(acesso) is Acesso:
-                self.frames["Acessos"].update_sync_status(acesso.id)
-            elif type(acesso) is str and acesso == "finished":
-                self.frames["Acessos"].populate_table()
+            self.frames["Acessos"].update_sync_status(acesso.id)  # TODO: Fire an event
         except Empty:
             pass
         finally:
