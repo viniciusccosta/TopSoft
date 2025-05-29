@@ -161,19 +161,19 @@ class AcessosFrame(Frame):
         self.parent = parent
         self.controller = controller
 
-        cols = [
-            # {"text": "ID", "stretch": False},
-            {"text": "Sinc.", "stretch": False},
-            {"text": "Cartão de Acesso", "stretch": True},
-            # {"text": "Data", "stretch": True},
-            # {"text": "Hora", "stretch": True},
-            {"text": "Data e Hora", "stretch": True},
-            {"text": "Catraca", "stretch": True},
+        coldata = [
+            {"text": "ID", "stretch": False},  # "cid": "id",
+            {"text": "Sinc.", "stretch": False},  # "cid": "synced",
+            {"text": "Cartão de Acesso", "stretch": True},  # "cid": "cartao",
+            # {text": "Data", "stretch": True}, # "cid": "", "
+            # {text": "Hora", "stretch": True}, # "cid": "", "
+            {"text": "Data e Hora", "stretch": True},  # "cid": "datetime",
+            {"text": "Catraca", "stretch": True},  # "cid": "catraca",
         ]
 
         self.table = Tableview(
             self,
-            coldata=cols,
+            coldata=coldata,
             paginated=False,
             searchable=True,
             autofit=True,
@@ -183,6 +183,9 @@ class AcessosFrame(Frame):
 
         for cid in self.table.cidmap:
             self.table.align_heading_center(cid=cid)
+
+        # TODO: Hide the ID column (not working...)
+        self.table.get_column(0).hide()  # TODO: Use cid instead of index
 
         # Schedule data insertion after initialization
         self.after(100, self.populate_table)
@@ -203,6 +206,7 @@ class AcessosFrame(Frame):
         offset = current_page * page_size
 
         # Fetch data for the current page
+        # TODO: Pagination to increase this limit
         for acesso in get_acessos(limit=1000):
             synced = "✅" if acesso.synced else "🚫"
             cartao = acesso.cartao_acesso.numeracao
@@ -211,10 +215,35 @@ class AcessosFrame(Frame):
             data_hora = datetime.combine(acesso.date, acesso.time)
             catraca = acesso.catraca
 
-            self.table.insert_row("end", (synced, cartao, data_hora, catraca))
+            self.table.insert_row(
+                "end",
+                (
+                    acesso.id,
+                    synced,
+                    cartao,
+                    data_hora,
+                    catraca,
+                ),
+            )
 
         # Load the table data
         self.table.load_table_data(clear_filters=True)
+
+    def update_sync_status(self, acesso_id):
+        """
+        Updates the sync status of a specific row in the table.
+
+        :param row_id: The ID of the row to update.
+        :param synced: The new sync status (True or False).
+        """
+
+        # TODO: Use a dict instead of iterating through rows to find the right row
+
+        for row in self.table.tablerows:
+            if row.values[0] == acesso_id:
+                # TODO: Not sure if this is the best way to update the row...
+                row.values[1] = "✅"
+                row.refresh()
 
 
 class ConfigurationFrame(Frame):
