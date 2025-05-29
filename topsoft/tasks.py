@@ -45,17 +45,15 @@ def task_processamento(stop_event, queue):
 
             # Filter out already synced access records:
             acessos = get_not_synced_acessos()
+            logger.info(f"Found {len(acessos)} not synced access records")
 
             # Filter out old records based on cutoff:
             cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
-            acessos = [a for a in acessos if a.date > cutoff]
-            logger.info(f"Filtered {len(acessos)} access records after cutoff date")
+            acessos = [a for a in acessos if a.date >= cutoff]
+            logger.info(f"Filtered {len(acessos)} acessos before cutoff date {cutoff}")
 
             # Send bilhetes to API and update their synced status on the database:
             asyncio.run(post_acessos_and_update_synced_status(acessos, queue))
-
-            # Set "finished" status for the task:
-            queue.put(("finished", True))
         except Exception as e:
             logger.warning("Error na execução da tarefa")
             logger.exception(e)
