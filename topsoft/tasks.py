@@ -4,14 +4,13 @@ from datetime import datetime
 
 import httpx
 from packaging import version
-from ttkbootstrap.dialogs import Messagebox
 
-from topsoft.activitysoft.api import post_acessos
 from topsoft.constants import UPDATE_URL
-from topsoft.repository import bulk_update_synced_acessos, get_not_synced_acessos
+from topsoft.repository import get_not_synced_acessos
 from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
     get_current_version,
+    post_acessos_and_update_synced_status,
     read_bilhetes_file,
     sync_students,
     wait_for_interval,
@@ -21,7 +20,7 @@ from topsoft.utils import (
 logger = logging.getLogger(__name__)
 
 
-def task_processamento(stop_event):
+def task_processamento(stop_event, queue):
     """
     Main background processing task.
     """
@@ -52,18 +51,11 @@ def task_processamento(stop_event):
             acessos = [a for a in acessos if a.date > cutoff]
             logger.info(f"Filtered {len(acessos)} access records after cutoff date")
 
-            # Send bilhetes to API:
-            results = asyncio.run(post_acessos(acessos))
+            # Send bilhetes to API and update their synced status on the database:
+            asyncio.run(post_acessos_and_update_synced_status(acessos, queue))
 
-            # Filter out non success results:
-            results = [r for r in results if r is not None]
-
-            # TODO: Update each acesso as soon as the request it's done instead of bulk update...
-
-            # Bulk update access records based on API response:
-            bulk_update_synced_acessos(results)
-
-            # TODO: Atualizar interface gráfica usando queue para comunicação
+            # Set "finished" status for the task:
+            queue.put(("finished", True))
         except Exception as e:
             logger.warning("Error na execução da tarefa")
             logger.exception(e)
@@ -104,10 +96,10 @@ def task_update_checker(stop_event):
                 logger.warning(f"Versão mais recente: {latest_version}")
                 logger.warning(f"Versão atual: {current_version}")
 
-                # TODO: Messabox from separated thread ?
-                Messagebox.show_info(
-                    title="Atualização", message="Uma nova versão está disponível."
-                )
+                # TODO: Alert the user about the new version (using the main GUI thread):
+                # Messagebox.show_info(
+                #     title="Atualização", message="Uma nova versão está disponível."
+                # )
         except Exception as e:
             logger.error(f"Error while checking for updates")
             logger.exception(e)

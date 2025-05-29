@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime
 from functools import partial
+from typing import Tuple
 
 import aiometer
 import httpx
 
 from topsoft.constants import API_BASE_URL, MAX_AT_ONCE, MAX_PER_SECOND
+from topsoft.models import Acesso
 from topsoft.secrets import get_api_key
 from topsoft.settings import get_cutoff
 
@@ -49,35 +51,7 @@ def fetch_students():
     return None
 
 
-async def post_acessos(bilhetes):
-    """
-    Send data to ActivitySoft concurrently using the API.
-    This function takes a list of access records (bilhetes),
-    checks if they are valid and not already synced, and posts them to the API.
-    It returns a list of results containing the access records and their corresponding status codes.
-    """
-
-    # TODO: stop_event to stop the task gracefully
-
-    # Concurrently post data to the API:
-    async with httpx.AsyncClient(
-        base_url=API_BASE_URL,
-        headers=get_header(),
-    ) as client:
-        results = await aiometer.run_all(
-            [partial(post_acesso, client, bilhete) for bilhete in bilhetes],
-            max_at_once=MAX_AT_ONCE,
-            max_per_second=MAX_PER_SECOND,
-        )
-        # TODO: Update database for each result
-
-    # TODO: Map each acesso to request, so "post_acesso" just return True/False
-
-    # Return the results
-    return results
-
-
-async def post_acesso(client, acesso):
+async def post_acesso(client, acesso) -> Tuple[Acesso, bool] | Tuple[None, None]:
     """
     Function to post a single access record to the API.
     This function checks if the access record is already synced and if it is valid
@@ -86,19 +60,19 @@ async def post_acesso(client, acesso):
 
     # If already synced, skip posting:
     if acesso.synced is True:
-        return None
+        return acesso, False
 
     # If access record is not valid, skip posting:
     acesso_dt = datetime.combine(acesso.date, acesso.time)
     cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y")
 
     if acesso_dt < cutoff:
-        return None
+        return acesso, False
 
     # Ignore acesso where there is not aluno associated with the card:
     if not acesso.cartao_acesso or not acesso.cartao_acesso.aluno:
         logger.warning(f"Access record {acesso.id} has no associated student.")
-        return None
+        return acesso, False
 
     # API Request to post data:
     try:
@@ -119,10 +93,37 @@ async def post_acesso(client, acesso):
 
         # Return acesso if successful:
         if response.status_code == 200:
-            # Return the access record and its status code:
-            return acesso
+
+            # Return the access record and success status:
+            return acesso, True
     except Exception as e:
         logger.error(f"Failed to send payload {acesso}")
         logger.exception(e)
 
-    return None
+    return acesso, False
+
+
+async def post_acessos(bilhetes, stop_event=None):
+    """
+    Send data to ActivitySoft concurrently using the API.
+    This function takes a list of access records (bilhetes),
+    checks if they are valid and not already synced, and posts them to the API.
+    It returns a list of results containing the access records and their corresponding status codes.
+    """
+
+    async with httpx.AsyncClient(
+        base_url="http://localhost:80/anything",  # TODO: base_url=API_BASE_URL,
+        headers=get_header(),
+    ) as client:
+        async with aiometer.amap(
+            partial(post_acesso, client),
+            bilhetes,
+            max_at_once=MAX_AT_ONCE,
+            max_per_second=MAX_PER_SECOND,
+        ) as results:
+            async for data in results:
+                yield data
+
+                if stop_event and stop_event.is_set():
+                    logger.info("Stopping post_acessos...")
+                    return

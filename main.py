@@ -1,5 +1,6 @@
 import logging
 import threading
+from queue import Empty, Queue
 
 import ttkbootstrap as ttk
 from PIL import Image
@@ -8,6 +9,7 @@ from pystray import Icon, Menu, MenuItem
 from topsoft.config import configure_logger
 from topsoft.database import configure_database
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
+from topsoft.models import Acesso
 from topsoft.tasks import task_processamento, task_update_checker
 from topsoft.utils import get_path
 
@@ -46,6 +48,7 @@ class App(ttk.Window):
         self.notebook.pack(expand=True, fill="both")
 
         # Processamento:
+        self.processing_queue = None
         self.processing_thread = None
         self.processing_stop_event = threading.Event()
         self.start_processing_thread()
@@ -90,13 +93,41 @@ class App(ttk.Window):
             self.processing_thread.join()
 
         # Start a new thread
+        self.processing_queue = Queue()
         self.processing_stop_event.clear()
         self.processing_thread = threading.Thread(
             target=task_processamento,
-            args=(self.processing_stop_event,),
+            args=(self.processing_stop_event, self.processing_queue),
             daemon=True,
         )
         self.processing_thread.start()
+
+        # TODO: Watch the queue for new items
+        self.after(100, self.watch_queue)
+
+    def watch_queue(self):
+        """
+        Watch the processing queue for new items.
+        This method can be used to update the UI or perform actions based on the queue.
+        """
+
+        # Stop watching if the stop event is set
+        if self.processing_stop_event.is_set():
+            return
+
+        # Read from the queue without blocking
+        try:
+            result = self.processing_queue.get_nowait()
+            acesso, success = result
+
+            if type(acesso) is Acesso:
+                self.frames["Acessos"].update_sync_status(acesso.id)
+            elif type(acesso) is str and acesso == "finished":
+                self.frames["Acessos"].populate_table()
+        except Empty:
+            pass
+        finally:
+            self.after(100, self.watch_queue)  # Continue watching the queue
 
     def on_closing(self):
         """
