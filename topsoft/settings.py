@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 sdb = PickleDB(SETTINGS_FILE)
 
 # TODO: Instead of using PickleDB, just add a settings table to the database !
+# TODO: It's necessary because if the user changes the settings, the application must be restarted to apply them.
 
 
 def get_or_set(key: str, default):
