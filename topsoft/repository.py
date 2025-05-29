@@ -242,3 +242,23 @@ def bind_matricula_to_cartao_acesso(cartao_numeracao: int, aluno_matricula: str)
             return True
 
     return False
+
+
+def update_acesso(acesso_id: int, **kwargs):
+    """
+    Update an access record by its ID.
+    """
+
+    with Session(engine) as session:
+        acesso = session.get(Acesso, acesso_id)
+        if not acesso:
+            logger.error(f"Acesso with ID {acesso_id} not found.")
+            return False
+
+        for key, value in kwargs.items():
+            if hasattr(acesso, key):
+                setattr(acesso, key, value)
+
+        session.add(acesso)
+        session.commit()
+        return True
