@@ -102,7 +102,7 @@ class App(ttk.Window):
         )
         self.processing_thread.start()
 
-        # TODO: Watch the queue for new items
+        # Watch the queue for new items
         self.after(100, self.watch_queue)
 
     def watch_queue(self):

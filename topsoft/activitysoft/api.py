@@ -31,8 +31,6 @@ def get_header():
 
 
 def fetch_students():
-    # TODO: stop_event to stop the task gracefully
-
     # Attempt to fetch the list of students from the API:
     try:
         with httpx.Client(base_url=API_BASE_URL, headers=get_header()) as client:
@@ -112,7 +110,7 @@ async def post_acessos(bilhetes, stop_event=None):
     """
 
     async with httpx.AsyncClient(
-        base_url="http://localhost:80/anything",  # TODO: base_url=API_BASE_URL,
+        base_url=API_BASE_URL,  # base_url="http://localhost:80/anything",  # TODO:
         headers=get_header(),
     ) as client:
         async with aiometer.amap(
