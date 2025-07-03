@@ -57,14 +57,14 @@ class App(ttk.Window):
         self.tray_icon = None
         self.create_tray_icon()
 
-        # Check for updates:
-        self.update_stop_event = threading.Event()
-        self.update_thread = threading.Thread(
-            target=task_update_checker,
-            args=(self.update_stop_event,),
-            daemon=True,
-        )
-        self.update_thread.start()
+        # # Check for updates:
+        # self.update_stop_event = threading.Event()
+        # self.update_thread = threading.Thread(
+        #     target=task_update_checker,
+        #     args=(self.update_stop_event,),
+        #     daemon=True,
+        # )
+        # self.update_thread.start()
 
     def create_tray_icon(self):
         """
@@ -149,10 +149,10 @@ class App(ttk.Window):
         if self.tray_icon:
             self.tray_icon.stop()
 
-        # Stop the update thread
-        if self.update_thread and self.update_thread.is_alive():
-            self.update_stop_event.set()
-            self.update_thread.join()
+        # # Stop the update thread
+        # if self.update_thread and self.update_thread.is_alive():
+        #     self.update_stop_event.set()
+        #     self.update_thread.join()
 
         # Destroy the window
         self.destroy()
