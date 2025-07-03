@@ -180,3 +180,4 @@ settings.json
 *.sqlite3
 *.offset
 *.exe
+alunos.json
