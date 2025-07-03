@@ -1,99 +1,17 @@
 {
-  "uuid": "137595b6-98b6-4101-a9ca-b32530a47229",
-  "lastMigration": 33,
-  "name": "TopSoft",
-  "endpointPrefix": "",
-  "latency": 0,
-  "port": 3001,
-  "hostname": "",
-  "folders": [],
-  "routes": [
-    {
-      "uuid": "f6210a98-61c6-4e5e-924c-8f63d4311daf",
-      "type": "http",
-      "documentation": "",
-      "method": "post",
-      "endpoint": "marcar_frequencia_aluno/",
-      "responses": [
-        {
-          "uuid": "3bf291d5-54e3-45e6-8c7b-bc4b500ff1ae",
-          "body": "{\r\n  \"recebido\": {\r\n    \"data_hora\": \"{{body 'data_hora'}}\",\r\n    \"tipo_entrada_saida\": \"{{body 'tipo_entrada_saida'}}\",\r\n    \"matricula\": \"{{body 'matricula'}}\",\r\n    \"id_responsavel_acompanhante\": {{{body 'id_responsavel_acompanhante'}}},\r\n    \"comentario\": {{{body 'comentario'}}}\r\n  },\r\n  \"resposta\": {\r\n    \"status\": \"TESTE\"\r\n  }\r\n}",
-          "latency": 0,
-          "statusCode": 200,
-          "label": "",
-          "headers": [],
-          "bodyType": "DATABUCKET",
-          "filePath": "",
-          "databucketID": "",
-          "sendFileAsBody": false,
-          "rules": [],
-          "rulesOperator": "OR",
-          "disableTemplating": false,
-          "fallbackTo404": false,
-          "default": true,
-          "crudKey": "id",
-          "callbacks": []
-        }
-      ],
-      "responseMode": null,
-      "streamingMode": null,
-      "streamingInterval": 0
-    },
-    {
-      "uuid": "fbc90b46-6872-448a-b124-378b2cabfd26",
-      "type": "http",
-      "documentation": "",
-      "method": "get",
-      "endpoint": "lista_alunos/",
-      "responses": [
-        {
-          "uuid": "be5cafc7-c1aa-4c19-8a7b-2b0223697764",
-          "body": "",
-          "latency": 0,
-          "statusCode": 200,
-          "label": "",
-          "headers": [],
-          "bodyType": "DATABUCKET",
-          "filePath": "",
-          "databucketID": "lydd",
-          "sendFileAsBody": false,
-          "rules": [],
-          "rulesOperator": "OR",
-          "disableTemplating": false,
-          "fallbackTo404": false,
-          "default": true,
-          "crudKey": "id",
-          "callbacks": []
-        }
-      ],
-      "responseMode": null,
-      "streamingMode": null,
-      "streamingInterval": 0
-    }
-  ],
-  "rootChildren": [
-    {
-      "type": "route",
-      "uuid": "f6210a98-61c6-4e5e-924c-8f63d4311daf"
-    },
-    {
-      "type": "route",
-      "uuid": "fbc90b46-6872-448a-b124-378b2cabfd26"
-    }
-  ],
-  "proxyMode": false,
-  "proxyHost": "",
-  "proxyRemovePrefix": false,
-  "tlsOptions": {
-    "enabled": false,
-    "type": "CERT",
-    "pfxPath": "",
-    "certPath": "",
-    "keyPath": "",
-    "caPath": "",
-    "passphrase": ""
-  },
+  "callbacks": [],
   "cors": true,
+  "data": [
+    {
+      "documentation": "",
+      "id": "lydd",
+      "name": "Fake_Alunos",
+      "uuid": "afe24ce0-76c9-4792-a8a2-7b4e30b31e7c",
+      "value": "[\n  {\n    \"id\": 1,\n    \"matricula\": \"20190001\",\n    \"nome\": \"Pedro Alves\",\n    \"cpf\": \"123.456.789-00\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2012-07-15T00:00:00\",\n    \"celular\": \"1198123-4567\",\n    \"email\": \"pedro.alves@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/1.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-05-03T18:21:56.613000\",\n    \"cartao_acesso_data_alteracao\": \"2019-05-27T10:08:54.857000\",\n    \"responsavel_id\": 101,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 101,\n    \"filiacao_2_id\": 102,\n    \"responsaveis_adicionais_ids\": [103],\n    \"cartao_acesso\": \"aa11bb22cc\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [198, 199]\n  },\n  {\n    \"id\": 2,\n    \"matricula\": \"20190002\",\n    \"nome\": \"Maria Soares\",\n    \"cpf\": \"987.654.321-11\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2013-03-22T00:00:00\",\n    \"celular\": \"2198765-4321\",\n    \"email\": \"maria.soares@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/2.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-08-10T09:15:12.000000\",\n    \"cartao_acesso_data_alteracao\": \"2020-01-05T14:30:00.000000\",\n    \"responsavel_id\": 104,\n    \"responsavel_secundario_id\": 105,\n    \"filiacao_1_id\": 104,\n    \"filiacao_2_id\": 105,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"dd33ee44ff\",\n    \"unidade_id\": 2,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [200]\n  },\n  {\n    \"id\": 3,\n    \"matricula\": \"20190003\",\n    \"nome\": \"João Pereira\",\n    \"cpf\": \"111.222.333-44\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2011-11-02T00:00:00\",\n    \"celular\": \"3199123-0000\",\n    \"email\": \"joao.pereira@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/3.jpg\",\n    \"foto_data_hora_alteracao\": \"2023-12-01T11:00:00.123000\",\n    \"cartao_acesso_data_alteracao\": \"2018-07-19T08:45:30.500000\",\n    \"responsavel_id\": 106,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 106,\n    \"filiacao_2_id\": null,\n    \"responsaveis_adicionais_ids\": [107, 108],\n    \"cartao_acesso\": \"1122aabb33\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [198, 201]\n  },\n  {\n    \"id\": 4,\n    \"matricula\": \"20190004\",\n    \"nome\": \"Ana Costa\",\n    \"cpf\": \"555.666.777-88\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2014-05-30T00:00:00\",\n    \"celular\": \"4198555-1234\",\n    \"email\": \"ana.costa@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/4.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-02-14T16:40:20.000000\",\n    \"cartao_acesso_data_alteracao\": \"2019-11-11T12:12:12.000000\",\n    \"responsavel_id\": 109,\n    \"responsavel_secundario_id\": 110,\n    \"filiacao_1_id\": 109,\n    \"filiacao_2_id\": 110,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"a1b2c3d4e5\",\n    \"unidade_id\": 3,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [199]\n  },\n  {\n    \"id\": 5,\n    \"matricula\": \"20190005\",\n    \"nome\": \"Lucas Martins\",\n    \"cpf\": \"222.333.444-55\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2010-09-17T00:00:00\",\n    \"celular\": \"5199000-1111\",\n    \"email\": \"lucas.martins@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/5.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-06-20T20:20:20.200000\",\n    \"cartao_acesso_data_alteracao\": \"2021-03-03T03:03:03.000000\",\n    \"responsavel_id\": 111,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 111,\n    \"filiacao_2_id\": 112,\n    \"responsaveis_adicionais_ids\": [113],\n    \"cartao_acesso\": \"ff00ee11dd\",\n    \"unidade_id\": 2,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [200, 201]\n  },\n  {\n    \"id\": 6,\n    \"matricula\": \"20190006\",\n    \"nome\": \"Beatriz Lima\",\n    \"cpf\": \"777.888.999-00\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2013-01-25T00:00:00\",\n    \"celular\": \"6199333-2222\",\n    \"email\": \"beatriz.lima@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/6.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-01-01T01:01:01.001000\",\n    \"cartao_acesso_data_alteracao\": \"2020-10-10T10:10:10.010000\",\n    \"responsavel_id\": 114,\n    \"responsavel_secundario_id\": 115,\n    \"filiacao_1_id\": 114,\n    \"filiacao_2_id\": 115,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"1122334455\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [198]\n  },\n  {\n    \"id\": 7,\n    \"matricula\": \"20190007\",\n    \"nome\": \"Rafael Ferreira\",\n    \"cpf\": \"333.444.555-66\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2011-12-12T00:00:00\",\n    \"celular\": \"7199444-3333\",\n    \"email\": \"rafael.ferreira@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/7.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-03-15T15:15:15.150000\",\n    \"cartao_acesso_data_alteracao\": \"2019-08-08T08:08:08.008000\",\n    \"responsavel_id\": 116,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 116,\n    \"filiacao_2_id\": 117,\n    \"responsaveis_adicionais_ids\": [118, 119],\n    \"cartao_acesso\": \"aabbccdd11\",\n    \"unidade_id\": 3,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [199, 200]\n  },\n  {\n    \"id\": 8,\n    \"matricula\": \"20190008\",\n    \"nome\": \"Camila Rocha\",\n    \"cpf\": \"666.777.888-99\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2014-02-28T00:00:00\",\n    \"celular\": \"8199555-4444\",\n    \"email\": \"camila.rocha@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/8.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-07-01T07:07:07.007000\",\n    \"cartao_acesso_data_alteracao\": \"2021-02-02T02:02:02.002000\",\n    \"responsavel_id\": 120,\n    \"responsavel_secundario_id\": 121,\n    \"filiacao_1_id\": 120,\n    \"filiacao_2_id\": 121,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"ccddee1122\",\n    \"unidade_id\": 2,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [200]\n  },\n  {\n    \"id\": 9,\n    \"matricula\": \"20190009\",\n    \"nome\": \"Felipe Andrade\",\n    \"cpf\": \"444.555.666-77\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2010-06-05T00:00:00\",\n    \"celular\": \"9199666-5555\",\n    \"email\": \"felipe.andrade@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/9.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-04-20T20:20:20.020000\",\n    \"cartao_acesso_data_alteracao\": \"2022-05-05T05:05:05.005000\",\n    \"responsavel_id\": 122,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 122,\n    \"filiacao_2_id\": 123,\n    \"responsaveis_adicionais_ids\": [124],\n    \"cartao_acesso\": \"ddeeff5566\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [198, 201]\n  },\n  {\n    \"id\": 10,\n    \"matricula\": \"20190010\",\n    \"nome\": \"Larissa Santos\",\n    \"cpf\": \"888.999.000-11\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2013-10-10T00:00:00\",\n    \"celular\": \"1199777-6666\",\n    \"email\": \"larissa.santos@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/10.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-09-09T09:09:09.009000\",\n    \"cartao_acesso_data_alteracao\": \"2020-12-12T12:12:12.012000\",\n    \"responsavel_id\": 125,\n    \"responsavel_secundario_id\": 126,\n    \"filiacao_1_id\": 125,\n    \"filiacao_2_id\": 126,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"1122ddeebb\",\n    \"unidade_id\": 3,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [199]\n  }\n]"
+    }
+  ],
+  "endpointPrefix": "",
+  "folders": [],
   "headers": [
     {
       "key": "Content-Type",
@@ -112,6 +30,14 @@
       "value": "Content-Type, Origin, Accept, Authorization, Content-Length, X-Requested-With"
     }
   ],
+  "hostname": "",
+  "lastMigration": 33,
+  "latency": 0,
+  "name": "TopSoft",
+  "port": 3001,
+  "proxyHost": "",
+  "proxyMode": false,
+  "proxyRemovePrefix": false,
   "proxyReqHeaders": [
     {
       "key": "",
@@ -124,14 +50,115 @@
       "value": ""
     }
   ],
-  "data": [
+  "rootChildren": [
     {
-      "uuid": "afe24ce0-76c9-4792-a8a2-7b4e30b31e7c",
-      "id": "lydd",
-      "name": "Alunos",
-      "documentation": "",
-      "value": "[\n  {\n    \"id\": 1,\n    \"matricula\": \"20190001\",\n    \"nome\": \"Pedro Alves\",\n    \"cpf\": \"123.456.789-00\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2012-07-15T00:00:00\",\n    \"celular\": \"1198123-4567\",\n    \"email\": \"pedro.alves@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/1.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-05-03T18:21:56.613000\",\n    \"cartao_acesso_data_alteracao\": \"2019-05-27T10:08:54.857000\",\n    \"responsavel_id\": 101,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 101,\n    \"filiacao_2_id\": 102,\n    \"responsaveis_adicionais_ids\": [103],\n    \"cartao_acesso\": \"aa11bb22cc\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [198, 199]\n  },\n  {\n    \"id\": 2,\n    \"matricula\": \"20190002\",\n    \"nome\": \"Maria Soares\",\n    \"cpf\": \"987.654.321-11\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2013-03-22T00:00:00\",\n    \"celular\": \"2198765-4321\",\n    \"email\": \"maria.soares@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/2.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-08-10T09:15:12.000000\",\n    \"cartao_acesso_data_alteracao\": \"2020-01-05T14:30:00.000000\",\n    \"responsavel_id\": 104,\n    \"responsavel_secundario_id\": 105,\n    \"filiacao_1_id\": 104,\n    \"filiacao_2_id\": 105,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"dd33ee44ff\",\n    \"unidade_id\": 2,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [200]\n  },\n  {\n    \"id\": 3,\n    \"matricula\": \"20190003\",\n    \"nome\": \"João Pereira\",\n    \"cpf\": \"111.222.333-44\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2011-11-02T00:00:00\",\n    \"celular\": \"3199123-0000\",\n    \"email\": \"joao.pereira@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/3.jpg\",\n    \"foto_data_hora_alteracao\": \"2023-12-01T11:00:00.123000\",\n    \"cartao_acesso_data_alteracao\": \"2018-07-19T08:45:30.500000\",\n    \"responsavel_id\": 106,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 106,\n    \"filiacao_2_id\": null,\n    \"responsaveis_adicionais_ids\": [107, 108],\n    \"cartao_acesso\": \"1122aabb33\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [198, 201]\n  },\n  {\n    \"id\": 4,\n    \"matricula\": \"20190004\",\n    \"nome\": \"Ana Costa\",\n    \"cpf\": \"555.666.777-88\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2014-05-30T00:00:00\",\n    \"celular\": \"4198555-1234\",\n    \"email\": \"ana.costa@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/4.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-02-14T16:40:20.000000\",\n    \"cartao_acesso_data_alteracao\": \"2019-11-11T12:12:12.000000\",\n    \"responsavel_id\": 109,\n    \"responsavel_secundario_id\": 110,\n    \"filiacao_1_id\": 109,\n    \"filiacao_2_id\": 110,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"a1b2c3d4e5\",\n    \"unidade_id\": 3,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [199]\n  },\n  {\n    \"id\": 5,\n    \"matricula\": \"20190005\",\n    \"nome\": \"Lucas Martins\",\n    \"cpf\": \"222.333.444-55\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2010-09-17T00:00:00\",\n    \"celular\": \"5199000-1111\",\n    \"email\": \"lucas.martins@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/5.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-06-20T20:20:20.200000\",\n    \"cartao_acesso_data_alteracao\": \"2021-03-03T03:03:03.000000\",\n    \"responsavel_id\": 111,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 111,\n    \"filiacao_2_id\": 112,\n    \"responsaveis_adicionais_ids\": [113],\n    \"cartao_acesso\": \"ff00ee11dd\",\n    \"unidade_id\": 2,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [200, 201]\n  },\n  {\n    \"id\": 6,\n    \"matricula\": \"20190006\",\n    \"nome\": \"Beatriz Lima\",\n    \"cpf\": \"777.888.999-00\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2013-01-25T00:00:00\",\n    \"celular\": \"6199333-2222\",\n    \"email\": \"beatriz.lima@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/6.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-01-01T01:01:01.001000\",\n    \"cartao_acesso_data_alteracao\": \"2020-10-10T10:10:10.010000\",\n    \"responsavel_id\": 114,\n    \"responsavel_secundario_id\": 115,\n    \"filiacao_1_id\": 114,\n    \"filiacao_2_id\": 115,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"1122334455\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [198]\n  },\n  {\n    \"id\": 7,\n    \"matricula\": \"20190007\",\n    \"nome\": \"Rafael Ferreira\",\n    \"cpf\": \"333.444.555-66\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2011-12-12T00:00:00\",\n    \"celular\": \"7199444-3333\",\n    \"email\": \"rafael.ferreira@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/7.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-03-15T15:15:15.150000\",\n    \"cartao_acesso_data_alteracao\": \"2019-08-08T08:08:08.008000\",\n    \"responsavel_id\": 116,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 116,\n    \"filiacao_2_id\": 117,\n    \"responsaveis_adicionais_ids\": [118, 119],\n    \"cartao_acesso\": \"aabbccdd11\",\n    \"unidade_id\": 3,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [199, 200]\n  },\n  {\n    \"id\": 8,\n    \"matricula\": \"20190008\",\n    \"nome\": \"Camila Rocha\",\n    \"cpf\": \"666.777.888-99\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2014-02-28T00:00:00\",\n    \"celular\": \"8199555-4444\",\n    \"email\": \"camila.rocha@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/8.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-07-01T07:07:07.007000\",\n    \"cartao_acesso_data_alteracao\": \"2021-02-02T02:02:02.002000\",\n    \"responsavel_id\": 120,\n    \"responsavel_secundario_id\": 121,\n    \"filiacao_1_id\": 120,\n    \"filiacao_2_id\": 121,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"ccddee1122\",\n    \"unidade_id\": 2,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [200]\n  },\n  {\n    \"id\": 9,\n    \"matricula\": \"20190009\",\n    \"nome\": \"Felipe Andrade\",\n    \"cpf\": \"444.555.666-77\",\n    \"sexo\": \"M\",\n    \"data_nascimento\": \"2010-06-05T00:00:00\",\n    \"celular\": \"9199666-5555\",\n    \"email\": \"felipe.andrade@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/9.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-04-20T20:20:20.020000\",\n    \"cartao_acesso_data_alteracao\": \"2022-05-05T05:05:05.005000\",\n    \"responsavel_id\": 122,\n    \"responsavel_secundario_id\": null,\n    \"filiacao_1_id\": 122,\n    \"filiacao_2_id\": 123,\n    \"responsaveis_adicionais_ids\": [124],\n    \"cartao_acesso\": \"ddeeff5566\",\n    \"unidade_id\": 1,\n    \"tipo_liberacao\": \"S\",\n    \"id_turmas\": [198, 201]\n  },\n  {\n    \"id\": 10,\n    \"matricula\": \"20190010\",\n    \"nome\": \"Larissa Santos\",\n    \"cpf\": \"888.999.000-11\",\n    \"sexo\": \"F\",\n    \"data_nascimento\": \"2013-10-10T00:00:00\",\n    \"celular\": \"1199777-6666\",\n    \"email\": \"larissa.santos@teste.com.br\",\n    \"url_foto\": \"https://example.com/foto/10.jpg\",\n    \"foto_data_hora_alteracao\": \"2024-09-09T09:09:09.009000\",\n    \"cartao_acesso_data_alteracao\": \"2020-12-12T12:12:12.012000\",\n    \"responsavel_id\": 125,\n    \"responsavel_secundario_id\": 126,\n    \"filiacao_1_id\": 125,\n    \"filiacao_2_id\": 126,\n    \"responsaveis_adicionais_ids\": [],\n    \"cartao_acesso\": \"1122ddeebb\",\n    \"unidade_id\": 3,\n    \"tipo_liberacao\": \"N\",\n    \"id_turmas\": [199]\n  }\n]"
+      "type": "route",
+      "uuid": "f6210a98-61c6-4e5e-924c-8f63d4311daf"
+    },
+    {
+      "type": "route",
+      "uuid": "fbc90b46-6872-448a-b124-378b2cabfd26"
     }
   ],
-  "callbacks": []
+  "routes": [
+    {
+      "documentation": "",
+      "endpoint": "marcar_frequencia_aluno/",
+      "method": "post",
+      "responseMode": null,
+      "responses": [
+        {
+          "body": "{\r\n  \"recebido\": {\r\n    \"data_hora\": \"{{body 'data_hora'}}\",\r\n    \"tipo_entrada_saida\": \"{{body 'tipo_entrada_saida'}}\",\r\n    \"matricula\": \"{{body 'matricula'}}\",\r\n    \"id_responsavel_acompanhante\": {{{body 'id_responsavel_acompanhante'}}},\r\n    \"comentario\": {{{body 'comentario'}}}\r\n  },\r\n  \"resposta\": {\r\n    \"status\": \"TESTE\"\r\n  }\r\n}",
+          "bodyType": "DATABUCKET",
+          "callbacks": [],
+          "crudKey": "id",
+          "databucketID": "",
+          "default": true,
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "filePath": "",
+          "headers": [],
+          "label": "",
+          "latency": 0,
+          "rules": [],
+          "rulesOperator": "OR",
+          "sendFileAsBody": false,
+          "statusCode": 200,
+          "uuid": "3bf291d5-54e3-45e6-8c7b-bc4b500ff1ae"
+        }
+      ],
+      "streamingInterval": 0,
+      "streamingMode": null,
+      "type": "http",
+      "uuid": "f6210a98-61c6-4e5e-924c-8f63d4311daf"
+    },
+    {
+      "documentation": "",
+      "endpoint": "lista_alunos/",
+      "method": "get",
+      "responseMode": null,
+      "responses": [
+        {
+          "body": "",
+          "bodyType": "FILE",
+          "callbacks": [],
+          "crudKey": "id",
+          "databucketID": "lydd",
+          "default": true,
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "filePath": "C:\\Users\\vinic\\VSCodeProjects\\TopSoft\\alunos.json",
+          "headers": [],
+          "label": "JSON com valores reais de alunos.",
+          "latency": 0,
+          "rules": [],
+          "rulesOperator": "AND",
+          "sendFileAsBody": true,
+          "statusCode": 200,
+          "uuid": "be5cafc7-c1aa-4c19-8a7b-2b0223697764"
+        },
+        {
+          "body": "{}",
+          "bodyType": "DATABUCKET",
+          "callbacks": [],
+          "crudKey": "id",
+          "databucketID": "lydd",
+          "default": false,
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "filePath": "",
+          "headers": [],
+          "label": "Dados falsos (bucket)",
+          "latency": 0,
+          "rules": [
+            {
+              "invert": false,
+              "modifier": "fake",
+              "operator": "equals",
+              "target": "query",
+              "value": "true"
+            }
+          ],
+          "rulesOperator": "OR",
+          "sendFileAsBody": false,
+          "statusCode": 200,
+          "uuid": "25f54206-7f2f-4f6d-a700-be6b6e7587c2"
+        }
+      ],
+      "streamingInterval": 0,
+      "streamingMode": null,
+      "type": "http",
+      "uuid": "fbc90b46-6872-448a-b124-378b2cabfd26"
+    }
+  ],
+  "tlsOptions": {
+    "caPath": "",
+    "certPath": "",
+    "enabled": false,
+    "keyPath": "",
+    "passphrase": "",
+    "pfxPath": "",
+    "type": "CERT"
+  },
+  "uuid": "137595b6-98b6-4101-a9ca-b32530a47229"
 }
