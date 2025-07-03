@@ -52,8 +52,7 @@ def fetch_students():
 async def post_acesso(client, acesso) -> Tuple[Acesso, bool] | Tuple[None, None]:
     """
     Function to post a single access record to the API.
-    This function checks if the access record is already synced and if it is valid
-    before attempting to post it to the API.
+    This function checks if the access record is already synced and if it is valid before attempting to post it to the API.
     """
 
     # If already synced, skip posting:
@@ -110,18 +109,23 @@ async def post_acessos(bilhetes, stop_event=None):
     """
 
     async with httpx.AsyncClient(
-        base_url=API_BASE_URL,  # base_url="http://localhost:80/anything",  # TODO:
+        base_url=API_BASE_URL,
         headers=get_header(),
     ) as client:
+
+        # Use aiometer to post access records concurrently:
         async with aiometer.amap(
             partial(post_acesso, client),
             bilhetes,
             max_at_once=MAX_AT_ONCE,
             max_per_second=MAX_PER_SECOND,
         ) as results:
+
+            # Iterate over the results and yield each access record:
             async for data in results:
                 yield data
 
+                # Check if the stop event is set to stop processing:
                 if stop_event and stop_event.is_set():
                     logger.info("Stopping post_acessos...")
                     return

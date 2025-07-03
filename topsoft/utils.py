@@ -49,7 +49,7 @@ def get_current_version():
     return "0.0.0"
 
 
-def read_bilhetes_file(
+def ingest_bilhetes(
     filepath, stop_event, cutoff=None, force_read=False
 ) -> List["Acesso"]:
     """
@@ -182,6 +182,7 @@ async def post_acessos_and_update_synced_status(bilhetes, queue):
     This function is called by the main task to handle the access records.
     """
 
+    # TODO: Use a single Client instance for all requests
     async for result in post_acessos(bilhetes):
         acesso, success = result
         if success:

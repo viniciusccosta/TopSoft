@@ -11,8 +11,8 @@ from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
     fetch_and_sync_students,
     get_current_version,
+    ingest_bilhetes,
     post_acessos_and_update_synced_status,
-    read_bilhetes_file,
     wait_for_interval,
     wait_until_next_hour,
 )
@@ -35,13 +35,13 @@ def task_processamento(stop_event, queue):
                 logger.warning("Bilhetes path not found")
                 continue
 
-            # Force sync of students:
+            # Fetch (from API) and sync students:
             if not fetch_and_sync_students():
                 logger.error("Failed to update students")
                 continue
 
             # Read and process ticket records (from bilhetes file into database):
-            read_bilhetes_file(bilhetes_path, stop_event)
+            ingest_bilhetes(bilhetes_path, stop_event)
 
             # Filter out already synced access records:
             acessos = get_not_synced_acessos()
