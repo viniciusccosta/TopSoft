@@ -27,6 +27,8 @@ def get_or_set(key: str, default):
 
 
 def get_bilhetes_path() -> str:
+    # TODO: return pathlib.Path instead of str
+
     return get_or_set("bilhetes_path", "")
 
 
