@@ -31,7 +31,7 @@ def task_processamento(stop_event, queue):
         try:
             # Bilhetes path:
             bilhetes_path = get_bilhetes_path()
-            if not bilhetes_path:
+            if not bilhetes_path or bilhetes_path == "":
                 logger.warning("Bilhetes path not found")
                 continue
 
