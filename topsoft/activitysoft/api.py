@@ -35,15 +35,15 @@ def fetch_students():
     try:
         with httpx.Client(base_url=API_BASE_URL, headers=get_header()) as client:
             response = client.get("lista_alunos/")
+
+            # Raise an error if the request was not successful:
             response.raise_for_status()
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch students: {response.status_code}")
-                return None
+
+            # If the request was successful, return the JSON response:
             return response.json()
     except httpx.RequestError as e:
         logger.error(f"Request error while fetching students: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error while fetching students: {e}")
+        raise Exception("Failed to fetch students from the API") from e
 
     # If the request fails, return None:
     return None
@@ -106,6 +106,13 @@ async def post_acessos(bilhetes, stop_event=None):
     This function takes a list of access records (bilhetes),
     checks if they are valid and not already synced, and posts them to the API.
     It returns a list of results containing the access records and their corresponding status codes.
+
+    Parameters:
+    - bilhetes (List[Acesso]): A list of access records to be posted.
+    - stop_event (threading.Event, optional): An event to signal when to stop processing.
+
+    Returns:
+    - Async generator yielding tuples of (Acesso, bool) where bool indicates success.
     """
 
     async with httpx.AsyncClient(
