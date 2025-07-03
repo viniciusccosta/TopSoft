@@ -151,10 +151,11 @@ def wait_until_next_hour(stop_event):
         sleep(1)
 
 
-def sync_students():
+def fetch_and_sync_students():
     """
     Update the students in the database by fetching and syncing data from the API.
     """
+
     logger.info("Starting student data synchronization")
 
     # Fetch students from the API:

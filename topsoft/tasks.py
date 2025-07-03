@@ -9,10 +9,10 @@ from topsoft.constants import UPDATE_URL
 from topsoft.repository import get_not_synced_acessos
 from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
+    fetch_and_sync_students,
     get_current_version,
     post_acessos_and_update_synced_status,
     read_bilhetes_file,
-    sync_students,
     wait_for_interval,
     wait_until_next_hour,
 )
@@ -36,7 +36,7 @@ def task_processamento(stop_event, queue):
                 continue
 
             # Force sync of students:
-            if not sync_students():
+            if not fetch_and_sync_students():
                 logger.error("Failed to update students")
                 continue
 
