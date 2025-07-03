@@ -54,6 +54,7 @@ class CartaoAcesso(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # API:
+    # TODO: Deveríamos garantir que sempre será com 0s à esquerda !
     numeracao: str = Field(unique=True)  # str(5) ou str(16)
 
     # Relationships:
