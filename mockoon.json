@@ -44,7 +44,7 @@
       "type": "http",
       "documentation": "",
       "method": "get",
-      "endpoint": "lista_alunos_a/",
+      "endpoint": "lista_alunos/",
       "responses": [
         {
           "uuid": "be5cafc7-c1aa-4c19-8a7b-2b0223697764",
