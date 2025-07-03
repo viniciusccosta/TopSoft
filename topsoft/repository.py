@@ -262,3 +262,41 @@ def update_acesso(acesso_id: int, **kwargs):
         session.add(acesso)
         session.commit()
         return True
+
+
+def get_or_create_cartao_acesso(numeracao: str) -> CartaoAcesso:
+    """
+    Get or create a CartaoAcesso by its numeracao.
+    """
+
+    # TODO: Numeração com 0s à esquerda sempre!
+    # Ensure it is 16 characters long # TODO: Poderia ser 5...
+    numeracao = numeracao.zfill(16)
+
+    with Session(engine) as session:
+        cartao = session.exec(
+            select(CartaoAcesso).where(CartaoAcesso.numeracao == numeracao)
+        ).first()
+
+        if not cartao:
+            cartao = CartaoAcesso(numeracao=numeracao)
+            session.add(cartao)
+            session.commit()
+            session.refresh(cartao)  # Ensure we have the latest state
+
+        return cartao
+
+
+def get_aluno_by_matricula(matricula: str) -> Aluno:
+    """
+    Get an Aluno by its matricula.
+    """
+    with Session(engine) as session:
+        try:
+            aluno = session.exec(
+                select(Aluno).where(Aluno.matricula == matricula)
+            ).first()
+            return aluno
+        except Exception as e:
+            logger.error(f"Error fetching Aluno by matricula {matricula}: {e}")
+            return None
