@@ -26,6 +26,17 @@ def configure_logger():
         logging.Formatter("%(asctime)s - %(name)s - %(funcName)s - %(message)s")
     )
 
+    # Suppress third-party libraries logging:
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+    logging.getLogger("rich").setLevel(logging.WARNING)
+    logging.getLogger("pygtail").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("win32ctypes").setLevel(logging.WARNING)
+    logging.getLogger("keyring").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+
     # Logger:
     logging.basicConfig(
         level=log_level,
