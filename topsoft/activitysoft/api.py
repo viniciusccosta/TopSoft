@@ -68,7 +68,8 @@ async def post_acesso(client, acesso) -> Tuple[Acesso, bool] | Tuple[None, None]
 
     # Ignore acesso where there is not aluno associated with the card:
     if not acesso.cartao_acesso or not acesso.cartao_acesso.aluno:
-        logger.warning(f"Access record {acesso.id} has no associated student.")
+        # logger.warning(f"Access record {acesso.id} has no associated student.")
+        # TODO: Print every single error is making the logs too verbose and too slow.
         return acesso, False
 
     # API Request to post data:
@@ -129,8 +130,11 @@ async def post_acessos(bilhetes, stop_event=None):
         ) as results:
 
             # Iterate over the results and yield each access record:
-            async for data in results:
+            async for i, data in enumerate(results):
                 yield data
+
+                if i % 1000 == 0:
+                    logger.debug(f"Processed {i} access records")
 
                 # Check if the stop event is set to stop processing:
                 if stop_event and stop_event.is_set():
