@@ -229,7 +229,7 @@ class AcessosFrame(Frame):
         # Load the table data
         self.table.load_table_data(clear_filters=True)
 
-    def update_sync_status(self, acesso_id):
+    def update_sync_status(self, acesso_ids):
         """
         Updates the sync status of a specific row in the table.
 
@@ -240,7 +240,7 @@ class AcessosFrame(Frame):
         # TODO: Use a dict instead of iterating through rows to find the right row
 
         for row in self.table.tablerows:
-            if row.values[0] == acesso_id:
+            if row.values[0] in acesso_ids:
                 # TODO: Not sure if this is the best way to update the row...
                 row.values[1] = "✅"
                 row.refresh()

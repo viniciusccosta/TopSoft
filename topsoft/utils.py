@@ -9,11 +9,12 @@ from typing import List
 import toml
 from pygtail import Pygtail
 
-from topsoft.activitysoft.api import fetch_students, post_acessos
+from topsoft.activitysoft.api import get_students_from_api, post_accessos_concurrently
 from topsoft.constants import OFFSET_PATH
 from topsoft.models import Acesso
 from topsoft.repository import (
     bulk_process_turnstile_events,
+    bulk_update_synced_status_acessos,
     process_turnstile_event,
     update_acesso,
     update_student_records,
@@ -224,7 +225,7 @@ def fetch_and_sync_students():
 
     # Fetch students from the API:
     try:
-        students_data = fetch_students()
+        students_data = get_students_from_api()
     except Exception as e:
         logger.error(f"Failed to fetch students: {e}")
         return False
@@ -239,21 +240,44 @@ def fetch_and_sync_students():
         return False
 
 
-async def post_acessos_and_update_synced_status(bilhetes, queue):
+async def post_acessos_and_update_synced_status(acessos):
     """
     Consume the access records and process them.
     This function is called by the main task to handle the access records.
 
     Parameters:
     - bilhetes (List[Acesso]): A list of access records to be processed.
-    - queue (Queue): A queue to put the results of the processing.
 
     Returns:
     - None
     """
 
-    async for result in post_acessos(bilhetes):
-        acesso, success = result
-        if success:
-            update_acesso(acesso.id, synced=True)
-            queue.put(result)
+    # Check if there are any access records to process:
+    if not acessos:
+        logger.info("No access records to process")
+        return
+
+    # Log the start of processing access records:
+    logger.info(f"Starting to process {len(acessos)} access records")
+
+    # Post and update the access records:
+    try:
+        # Post access records to the API:
+        logger.debug("Posting access records to the API")
+        results = await post_accessos_concurrently(acessos)
+
+        # Filter successful results:
+        logger.debug(f"Filtering successful access records from {len(results)} results")
+        sucess_results = [r[0] for r in results if r[1] == True]
+
+        # Bulk update the synced status of access records:
+        logger.debug(f"Updating synced status for {len(sucess_results)} access records")
+        bulk_update_synced_status_acessos(sucess_results, status=True)
+
+        # Log and return the successfully processed access records:
+        logger.info(f"Successfully processed {len(sucess_results)} access records")
+        return sucess_results
+    except Exception as e:
+        logger.error(f"Error in post_acessos_and_update_synced_status: {e}")
+        logger.exception(e)
+        raise

@@ -113,9 +113,10 @@ class App(ttk.Window):
 
         # Read from the queue without blocking
         try:
-            result = self.processing_queue.get_nowait()
-            acesso, success = result
-            self.frames["Acessos"].update_sync_status(acesso.id)  # TODO: Fire an event
+            acessos_ids = self.processing_queue.get_nowait()
+
+            # TODO: Fire an event instead of directly calling the frame method...
+            self.frames["Acessos"].update_sync_status(acessos_ids)
         except Empty:
             pass
         finally:
