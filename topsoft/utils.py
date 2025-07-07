@@ -13,6 +13,7 @@ from topsoft.activitysoft.api import fetch_students, post_acessos
 from topsoft.constants import OFFSET_PATH
 from topsoft.models import Acesso
 from topsoft.repository import (
+    bulk_process_turnstile_events,
     process_turnstile_event,
     update_acesso,
     update_student_records,
@@ -54,6 +55,7 @@ def ingest_bilhetes(
     stop_event,
     cutoff=None,
     force_read=False,
+    batch_size=1000,
 ) -> List["Acesso"]:
     """
     Reads new lines from the bilhetes file since the last run (or since force_read), parses each record, and returns a list of Acesso objects.
@@ -65,13 +67,19 @@ def ingest_bilhetes(
     - stop_event (threading.Event): An event to signal when to stop processing.
     - cutoff (datetime, optional): If set, only records newer than this date will be processed.
     - force_read (bool): If True, the offset file will be deleted, forcing a full re-read of the bilhetes file.
+    - batch_size (int): Number of events to process in each batch for bulk insertion.
 
     Returns:
     - List[Acesso]: A list of Acesso objects created from the parsed records.
     """
 
+    logger.info(f"Ingesting bilhetes from file: {filepath=}")
+
     # Variables:
-    tickets = []
+    all_tickets = []
+    events_batch = []
+
+    # TODO: Would be nice to get how many lines are in the file, so we can log it !
 
     # If forcing full re-read, delete the offset file
     if force_read:
@@ -84,11 +92,37 @@ def ingest_bilhetes(
     # Read the file using Pygtail:
     reader = Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
 
+    def process_batch(events):
+        """Process a batch of events using bulk insertion"""
+        if not events:
+            return []
+
+        try:
+            return bulk_process_turnstile_events(events)
+        except Exception as e:
+            logger.error(f"Error processing batch of {len(events)} events: {e}")
+            # Fallback to individual processing if bulk fails
+            fallback_tickets = []
+            for event in events:
+                try:
+                    ticket = process_turnstile_event(event)
+                    if ticket:
+                        fallback_tickets.append(ticket)
+                except Exception as event_error:
+                    logger.warning(
+                        f"Error processing individual event: {event}, error: {event_error}"
+                    )
+            return fallback_tickets
+
     for n, raw_line in enumerate(reader):
         # Before each raw_line, checks if the stop event is set to stop processing
         if stop_event.is_set():
             logger.info("Stopping extraction of bilhetes")
-            return tickets
+            # Process any remaining events in the batch before stopping
+            if events_batch:
+                batch_tickets = process_batch(events_batch)
+                all_tickets.extend(batch_tickets)
+            return all_tickets
 
         # Skip empty lines, or malformed lines:
         parts = raw_line.strip().split()
@@ -109,25 +143,29 @@ def ingest_bilhetes(
         if cutoff and parsed_timestamp < cutoff:
             continue
 
-        # Create a ticket record from the parts and insert it into the database:
-        try:
-            ticket = process_turnstile_event(
-                {
-                    "marcacao": parts[0],
-                    "date": parts[1],
-                    "time": parts[2],
-                    "cartao": parts[3],
-                    "catraca": parts[4],
-                }
-            )
-            tickets.append(ticket)
-        except Exception as e:
-            logger.warning(f"Error reading line: {raw_line!r}")
-            logger.exception(e)
-            continue
+        # Add event to batch
+        event = {
+            "marcacao": parts[0],
+            "date": parts[1],
+            "time": parts[2],
+            "cartao": parts[3],
+            "catraca": parts[4],
+        }
+        events_batch.append(event)
 
-    # Return the list of tickets
-    return tickets
+        # Process batch when it reaches the batch size
+        if len(events_batch) >= batch_size:
+            batch_tickets = process_batch(events_batch)
+            all_tickets.extend(batch_tickets)
+            events_batch = []  # Reset batch
+
+    # Process any remaining events in the final batch
+    if events_batch:
+        batch_tickets = process_batch(events_batch)
+        all_tickets.extend(batch_tickets)
+
+    logger.info(f"Successfully ingested {len(all_tickets)} tickets from {filepath}")
+    return all_tickets
 
 
 def wait_for_interval(stop_event):
