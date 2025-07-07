@@ -25,34 +25,55 @@ def task_processamento(stop_event, queue):
     Main background processing task.
     """
 
-    logger.info("Starting background task")
+    logger.info("Starting background processing task")
 
     while not stop_event.is_set():
         try:
             # Bilhetes path:
+            logger.debug("Fetching bilhetes path")
             bilhetes_path = get_bilhetes_path()
             if not bilhetes_path or bilhetes_path == "":
                 logger.warning("Bilhetes path not found")
                 continue
 
-            # Fetch (from API) and sync students:
+            if stop_event.is_set():
+                break
+
+            # Fetch alunos (from API) and sync them to the database:
+            logger.debug("Fetching and syncing students")
             if not fetch_and_sync_students():
                 logger.error("Failed to update students")
                 continue
 
+            if stop_event.is_set():
+                break
+
             # Read and process ticket records (from bilhetes file into database):
-            ingest_bilhetes(bilhetes_path, stop_event)
+            logger.debug(f"Reading bilhetes from {bilhetes_path}")
+            ingest_bilhetes(bilhetes_path, stop_event, batch_size=25000)
+
+            if stop_event.is_set():
+                break
 
             # Filter out already synced access records:
+            logger.debug("Fetching not synced access records")
             acessos = get_not_synced_acessos()
             logger.info(f"Found {len(acessos)} not synced access records")
 
+            if stop_event.is_set():
+                break
+
             # Filter out old records based on cutoff:
+            logger.debug("Filtering access records based on cutoff date")
             cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
             acessos = [a for a in acessos if a.date >= cutoff]
             logger.info(f"Filtered {len(acessos)} acessos before cutoff date {cutoff}")
 
+            if stop_event.is_set():
+                break
+
             # Send bilhetes to API and update their synced status on the database:
+            logger.debug("Posting access records to API and updating synced status")
             asyncio.run(post_acessos_and_update_synced_status(acessos, queue))
         except Exception as e:
             logger.warning("Error na execução da tarefa")
