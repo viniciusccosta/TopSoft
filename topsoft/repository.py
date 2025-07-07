@@ -386,6 +386,62 @@ def bind_matricula_to_cartao_acesso(cartao_numeracao: int, aluno_matricula: str)
     return False
 
 
+def bulk_update_acessos(acessos: List[Acesso]) -> bool:
+    """
+    Bulk update access records in the database.
+
+    Parameters:
+    - acessos: List of Acesso objects to be updated.
+
+    Returns:
+    - bool: True if the update was successful, False otherwise.
+    """
+    if not acessos:
+        logger.warning("No access records to update.")
+        return False
+
+    with Session(engine) as session:
+        try:
+            session.add_all(acessos)
+            session.commit()
+            logger.info(f"Updated {len(acessos)} access records successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to bulk update access records: {e}")
+            session.rollback()
+            return False
+
+
+def bulk_update_synced_status_acessos(acessos: List[Acesso], status: bool) -> bool:
+    """
+    Bulk update the synced status of access records in the database.
+
+    Parameters:
+    - acessos: List of Acesso objects to be updated.
+    - status: Boolean indicating the new synced status.
+
+    Returns:
+    - bool: True if the update was successful, False otherwise.
+    """
+
+    if not acessos:
+        logger.warning("No access records to update.")
+        return False
+
+    with Session(engine) as session:
+        try:
+            for acesso in acessos:
+                acesso.synced = status
+                session.add(acesso)
+            session.commit()
+            logger.info(f"Updated {len(acessos)} access records to synced={status}.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to bulk update access records: {e}")
+            session.rollback()
+            return False
+
+
 def update_acesso(acesso_id: int, **kwargs):
     """
     Update an access record by its ID.
