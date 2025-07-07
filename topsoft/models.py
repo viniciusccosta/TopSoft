@@ -93,3 +93,15 @@ class Acesso(SQLModel, table=True):
             comment="Unique constraint for Acesso table",
         ),
     )
+
+    def __repr__(self):
+        return (
+            f"Acesso(id={self.id}, marcacao='{self.marcacao}', date='{self.date}', "
+            f"time='{self.time}', catraca='{self.catraca}', cartao_acesso_id={self.cartao_acesso_id})"
+        )
+
+    def __str__(self):
+        return (
+            f"Acesso {self.id}: {self.marcacao} on {self.date} at {self.time} "
+            f"from cartao {self.cartao_acesso_id} (Catraca: {self.catraca})"
+        )
