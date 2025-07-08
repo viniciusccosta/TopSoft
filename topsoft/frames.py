@@ -1,5 +1,7 @@
 import logging
+import threading
 from datetime import datetime
+from time import sleep
 from tkinter import Frame, filedialog
 
 import ttkbootstrap as ttk
@@ -79,10 +81,16 @@ class CartoesAcessoFrame(Frame):
             self.table.align_heading_center(cid=cid)
 
         # Populate the table with data
-        self.after(100, self.populate_table)
-        # self.populate_table()
+        self.populate_table()
 
     def populate_table(self):
+        # TODO: Show a loading indicator while fetching data
+
+        thread = threading.Thread(target=self._populate_table)
+        thread.daemon = True
+        thread.start()
+
+    def _populate_table(self):
         """
         Populates the table with CartaoAcesso and their associated Aluno.
         """
@@ -94,15 +102,32 @@ class CartoesAcessoFrame(Frame):
         cartoes = get_cartoes_acesso()
 
         # Populate the table
+        row_datas = []
         for i, cartao in enumerate(cartoes):
             aluno_info = (
                 f"{cartao.aluno.nome} ({cartao.aluno.matricula})"
                 if cartao.aluno
                 else "Não vinculado"
             )
-            self.table.insert_row("end", (cartao.numeracao, aluno_info))
+            row_datas.append((cartao.numeracao, aluno_info))
 
-        self.table.load_table_data(clear_filters=False)
+        self.after(0, lambda: self._update_table_ui(row_datas))
+
+        # TODO: Hide loading indicator if used
+
+    def _update_table_ui(self, rows_data):
+        """
+        Updates the table UI with prepared data.
+        """
+        # Clear existing data
+        self.table.delete_rows(indices=None, iids=None)
+
+        # Insert all rows
+        for row_data in rows_data:
+            self.table.insert_row("end", row_data)
+
+        # Load the table data
+        self.table.load_table_data(clear_filters=True)
 
     def handle_row_double_click(self, event, *args, **kwargs):
         """
@@ -240,39 +265,60 @@ class AcessosFrame(Frame):
         # TODO: Hide the ID column (not working...)
         self.table.get_column(0).hide()  # TODO: Use cid instead of index
 
-        # Schedule data insertion after initialization
-        self.after(100, self.populate_table)
+        # Data insertion:
+        self.populate_table()
 
     def populate_table(self):
         """
         Populates the table with data from the database.
         """
+        # TODO: Use a loading indicator while fetching data
 
-        # TODO: Run on a separate thread to avoid blocking the UI...
+        # Run in a separate thread to avoid blocking UI
+        thread = threading.Thread(target=self._populate_table_thread)
+        thread.daemon = True
+        thread.start()
 
-        # Clear existing data
-        self.table.delete_rows(indices=None, iids=None)
+    def _populate_table_thread(self):
+        """
+        Thread worker for populating the table.
+        """
+        # Fetch data in background thread
+        acessos = get_acessos()
 
-        # Fetch data for the current page
-        for acesso in get_acessos():
+        # Prepare all data
+        rows_data = []
+        for acesso in acessos:
             synced = "✅" if acesso.synced else "🚫"
             cartao = acesso.cartao_acesso.numeracao
-            # data = acesso.date.strftime("%d/%m/%Y")
-            # hora = acesso.time.strftime("%H:%M")
             data_hora = datetime.combine(acesso.date, acesso.time)
             catraca = acesso.catraca
 
-            # TODO: I'm not sure if this is the most efficient way to insert rows (should I use a batch insert?)
-            self.table.insert_row(
-                "end",
+            rows_data.append(
                 (
                     acesso.id,
                     synced,
                     cartao,
                     data_hora,
                     catraca,
-                ),
+                )
             )
+
+        # Update UI in main thread
+        self.after(0, lambda: self._update_table_ui(rows_data))
+
+        # TODO: Hide loading indicator if used
+
+    def _update_table_ui(self, rows_data):
+        """
+        Updates the table UI with prepared data.
+        """
+        # Clear existing data
+        self.table.delete_rows(indices=None, iids=None)
+
+        # Insert all rows
+        for row_data in rows_data:
+            self.table.insert_row("end", row_data)
 
         # Load the table data
         self.table.load_table_data(clear_filters=True)
