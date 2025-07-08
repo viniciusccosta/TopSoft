@@ -11,12 +11,16 @@ from sqlalchemy import JSON
 
 
 class Aluno(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(
+        default=None,  # Default to None for auto-increment
+        primary_key=True,
+    )
 
     # API:
-    matricula: str
     nome: str
-    responsavel_id: int
+
+    matricula: Optional[str] = None
+    responsavel_id: Optional[int] = None
 
     cpf: Optional[str] = None
     sexo: Optional[str] = None

@@ -498,3 +498,23 @@ def get_aluno_by_matricula(matricula: str) -> Aluno:
         except Exception as e:
             logger.error(f"Error fetching Aluno by matricula {matricula}: {e}")
             return None
+
+
+def get_or_create_aluno(nome: str, matricula: str = None, **kwargs) -> Aluno:
+    """
+    Get or create an Aluno by its name and optional matricula.
+    """
+
+    # Drop unknown kwargs
+    valid_kwargs = {k: v for k, v in kwargs.items() if hasattr(Aluno, k)}
+
+    with Session(engine) as session:
+        aluno = session.exec(select(Aluno).where(Aluno.nome == nome)).first()
+
+        if not aluno:
+            aluno = Aluno(nome=nome, matricula=matricula, **valid_kwargs)
+            session.add(aluno)
+            session.commit()
+            session.refresh(aluno)  # Ensure we have the latest state
+
+        return aluno
