@@ -55,7 +55,6 @@ def ingest_bilhetes(
     filepath,
     stop_event,
     cutoff=None,
-    force_read=False,
     batch_size=1000,
 ) -> List["Acesso"]:
     """
@@ -81,14 +80,6 @@ def ingest_bilhetes(
     events_batch = []
 
     # TODO: Would be nice to get how many lines are in the file, so we can log it !
-
-    # If forcing full re-read, delete the offset file
-    if force_read:
-        try:
-            os.remove(OFFSET_PATH)
-            logger.info("Offset file removed; full file will be re-read.")
-        except FileNotFoundError:
-            pass
 
     # Read the file using Pygtail:
     reader = Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
@@ -165,7 +156,7 @@ def ingest_bilhetes(
         batch_tickets = process_batch(events_batch)
         all_tickets.extend(batch_tickets)
 
-    logger.info(f"Successfully ingested {len(all_tickets)} tickets from {filepath}")
+    logger.info(f"Successfully ingested {len(all_tickets)} tickets.")
     return all_tickets
 
 
@@ -255,7 +246,7 @@ async def post_acessos_and_update_synced_status(acessos):
     # Check if there are any access records to process:
     if not acessos:
         logger.info("No access records to process")
-        return
+        return []
 
     # Log the start of processing access records:
     logger.info(f"Starting to process {len(acessos)} access records")
