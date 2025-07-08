@@ -9,8 +9,7 @@ from pystray import Icon, Menu, MenuItem
 from topsoft.config import configure_logger
 from topsoft.database import configure_database
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
-from topsoft.models import Acesso
-from topsoft.tasks import task_processamento, task_update_checker
+from topsoft.tasks import task_processamento
 from topsoft.utils import get_path
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,6 @@ class App(ttk.Window):
 
         # Frames:
         self.frames = {
-            # "TopSoft": MainFrame(self.notebook, controller=self),
             "Cartões de Acesso": CartoesAcessoFrame(self.notebook, controller=self),
             "Acessos": AcessosFrame(self.notebook, controller=self),
             "Configurações": ConfigurationFrame(self.notebook, controller=self),
@@ -56,15 +54,6 @@ class App(ttk.Window):
         # System Tray:
         self.tray_icon = None
         self.create_tray_icon()
-
-        # # Check for updates:
-        # self.update_stop_event = threading.Event()
-        # self.update_thread = threading.Thread(
-        #     target=task_update_checker,
-        #     args=(self.update_stop_event,),
-        #     daemon=True,
-        # )
-        # self.update_thread.start()
 
     def create_tray_icon(self):
         """
@@ -116,7 +105,9 @@ class App(ttk.Window):
             acessos_ids = self.processing_queue.get_nowait()
 
             # TODO: Fire an event instead of directly calling the frame method...
-            self.frames["Acessos"].update_sync_status(acessos_ids)
+            if not acessos_ids:
+                logger.debug(f"Received {len(acessos_ids)} access IDs from the queue")
+                self.frames["Acessos"].update_sync_status(acessos_ids)
         except Empty:
             pass
         finally:
@@ -149,11 +140,6 @@ class App(ttk.Window):
         # Stop the Tray Icon thread
         if self.tray_icon:
             self.tray_icon.stop()
-
-        # # Stop the update thread
-        # if self.update_thread and self.update_thread.is_alive():
-        #     self.update_stop_event.set()
-        #     self.update_thread.join()
 
         # Destroy the window
         self.destroy()
