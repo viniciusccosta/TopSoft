@@ -59,8 +59,12 @@ def task_processamento(stop_event, queue):
             # Read and process ticket records (from bilhetes file into database):
             logger.debug(f"Reading bilhetes from {bilhetes_path}")
 
+            # TODO: Add a "processing" flag on queue to show a loading indicator in the GUI
+
             # Attempt to ingest bilhetes:
             ingest_bilhetes(bilhetes_path, stop_event, batch_size=25000)
+
+            # TODO: Add a "processed" flag on queue to show a success indicator in the GUI
 
             # Check if the stop event is set after processing bilhetes:
             if stop_event.is_set():
@@ -90,12 +94,18 @@ def task_processamento(stop_event, queue):
 
             # 6 ========================================================================
             # Send bilhetes to API and update their synced status on the database:
+
+            # TODO: Add a "processing" flag on queue to show a loading indicator in the GUI
+
             logger.debug("Posting access records to API and updating synced status")
             results = asyncio.run(post_acessos_and_update_synced_status(acessos))
 
-            # Put the successfully processed access records into the queue:
-            queue.put([acesso.id for acesso in results])
-            logger.debug(f"Put {len(results)} access records into the queue")
+            if results:
+                # Put the successfully processed access records into the queue:
+                queue.put([acesso.id for acesso in results])
+                logger.debug(f"Put {len(results)} access records into the queue")
+
+            # TODO: Add a "processed" flag on queue to show a success indicator in the GUI
         except Exception as e:
             logger.warning(f"Error na execução da tarefa: {e}")
             logger.exception(e)
