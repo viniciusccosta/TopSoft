@@ -49,7 +49,7 @@
         {
           "uuid": "be5cafc7-c1aa-4c19-8a7b-2b0223697764",
           "body": "",
-          "latency": 5000,
+          "latency": 3000,
           "statusCode": 200,
           "label": "JSON com valores reais de alunos.",
           "headers": [],
