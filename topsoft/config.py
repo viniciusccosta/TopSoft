@@ -23,7 +23,7 @@ def configure_logger():
     console_handler = RichHandler(rich_tracebacks=True)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(funcName)s - %(message)s")
+        logging.Formatter("%(name)s - %(funcName)s - %(message)s")
     )
 
     # Suppress third-party libraries logging:
