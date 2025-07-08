@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from tkinter import Frame, filedialog
 
@@ -22,6 +23,8 @@ from topsoft.settings import (
     set_interval,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class CartoesAcessoFrame(Frame):
     """
@@ -42,6 +45,14 @@ class CartoesAcessoFrame(Frame):
         self.parent = parent
         self.controller = controller
 
+        # Export button
+        self.export_button = ttk.Button(
+            self,
+            text="Exportar Cartões",
+            command=lambda: self.export_cartoes_acesso(),
+        )
+        self.export_button.pack(expand=False, padx=10, pady=10, side="top")
+
         # Define table columns
         cols = [
             {"text": "Cartão de Acesso", "stretch": True},
@@ -56,8 +67,10 @@ class CartoesAcessoFrame(Frame):
             searchable=True,
             autofit=True,
             autoalign=False,
+            # yscrollbar=True,
         )
         self.table.pack(expand=True, fill="both", padx=10, pady=10)
+        # TODO: Where is the vertical scrollbar ?
 
         self.table.view.bind("<Double-1>", self.handle_row_double_click)
 
@@ -142,6 +155,40 @@ class CartoesAcessoFrame(Frame):
             padx=10, pady=10
         )
 
+    def export_cartoes_acesso(self):
+        """
+        Exports the CartaoAcesso data to a file.
+        This function is called when the user clicks the export button.
+        """
+
+        # 1) Retrieve all CartaoAcesso directly from the database
+        cartoes = get_cartoes_acesso()
+
+        # 2) Format the data according to the expected output
+        formatted_data = []
+        for cartao in cartoes:
+            # Ensure the card number is 16 characters long, padded with zeros
+            card_number = str(cartao.numeracao).zfill(16)
+
+            # Ensure the name is left-aligned and up to 40 characters long
+            name = f"{cartao.aluno.nome if cartao.aluno else 'Não vinculado':<40}"
+
+            # Append the formatted string
+            formatted_data.append(f"{card_number}{name}00110")
+
+        # 3) Ask user for filename and path
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt")],
+            title="Salvar Cartões de Acesso",
+        )
+
+        # 4) Write the formatted data to a file
+        if filename:
+            with open(filename, "w", encoding="utf-8") as file:
+                for line in formatted_data:
+                    file.write(line + "\n")
+
 
 class AcessosFrame(Frame):
     """
@@ -161,6 +208,8 @@ class AcessosFrame(Frame):
         self.parent = parent
         self.controller = controller
 
+        colors = self.controller.style.colors
+
         coldata = [
             {"text": "ID", "stretch": False},  # "cid": "id",
             {"text": "Sinc.", "stretch": False},  # "cid": "synced",
@@ -174,12 +223,16 @@ class AcessosFrame(Frame):
         self.table = Tableview(
             self,
             coldata=coldata,
-            paginated=False,
+            paginated=True,
+            pagesize=25,
             searchable=True,
             autofit=True,
             autoalign=False,
+            stripecolor=(colors.light, None),
+            # yscrollbar=True,
         )
         self.table.pack(expand=True, fill="both", padx=10, pady=10)
+        # TODO: Where is the vertical scrollbar ?
 
         for cid in self.table.cidmap:
             self.table.align_heading_center(cid=cid)
@@ -195,19 +248,13 @@ class AcessosFrame(Frame):
         Populates the table with data from the database.
         """
 
+        # TODO: Run on a separate thread to avoid blocking the UI...
+
         # Clear existing data
         self.table.delete_rows(indices=None, iids=None)
 
-        # Get the current page index and page size
-        current_page = int(self.table._pageindex.get())
-        page_size = int(self.table.pagesize)
-
-        # Calculate the offset for pagination
-        offset = current_page * page_size
-
         # Fetch data for the current page
-        # TODO: Pagination to increase this limit
-        for acesso in get_acessos(limit=1000):
+        for acesso in get_acessos():
             synced = "✅" if acesso.synced else "🚫"
             cartao = acesso.cartao_acesso.numeracao
             # data = acesso.date.strftime("%d/%m/%Y")
@@ -215,6 +262,7 @@ class AcessosFrame(Frame):
             data_hora = datetime.combine(acesso.date, acesso.time)
             catraca = acesso.catraca
 
+            # TODO: I'm not sure if this is the most efficient way to insert rows (should I use a batch insert?)
             self.table.insert_row(
                 "end",
                 (
@@ -238,6 +286,8 @@ class AcessosFrame(Frame):
         """
 
         # TODO: Use a dict instead of iterating through rows to find the right row
+
+        logger.debug(f"Updating sync status for access {len(acesso_ids)} IDs")
 
         for row in self.table.tablerows:
             if row.values[0] in acesso_ids:
