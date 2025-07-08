@@ -105,7 +105,12 @@ class Acesso(SQLModel, table=True):
         )
 
     def __str__(self):
+        # try:
+        #     cartao_info = self.cartao_acesso.numeracao if self.cartao_acesso else "N/A"
+        # except (AttributeError, Exception):
+        #     cartao_info = str(self.cartao_acesso_id)
+
         return (
             f"Acesso {self.id}: {self.marcacao} on {self.date} at {self.time} "
-            f"from cartao {self.cartao_acesso_id} (Catraca: {self.catraca})"
+            f"from cartao_id: {self.cartao_acesso_id}) (Catraca: {self.catraca})"
         )
