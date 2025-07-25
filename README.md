@@ -1,57 +1,176 @@
-# TopSoft
+# TopSoft 🎓
 
-**TopSoft** é um conector intermediário entre os dispositivos de controle de acesso da **TopData** (catracas) e o sistema de gestão escolar **ActivitySoft**. Seu objetivo é garantir a sincronização eficiente e confiável dos dados de acesso, oferecendo funcionalidades específicas que preenchem as lacunas existentes no fluxo direto entre hardware e software de gestão.
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/viniciusccosta/TopSoft/releases)
+[![Python](https://img.shields.io/badge/python-3.12+-green.svg)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 📌 Objetivo
+**TopSoft** é uma solução completa de integração entre dispositivos de controle de acesso **TopData** (catracas) e o sistema de gestão escolar **ActivitySoft**. Desenvolvido com arquitetura moderna e interface intuitiva, garante sincronização eficiente e confiável dos dados de acesso.
 
-Facilitar e automatizar a comunicação entre os arquivos gerados pelas catracas da TopData e o sistema de gestão escolar ActivitySoft, assegurando que todas as informações de acesso sejam processadas, integradas e armazenadas corretamente.
+## 🚀 Características Principais
 
-## ⚙️ Funcionalidades
+- **🔄 Integração em Tempo Real**: Processamento automático de eventos das catracas TopData
+- **👥 Gestão Completa**: Gerenciamento de alunos, cartões de acesso e registros de entrada/saída  
+- **🎛️ Interface Moderna**: GUI clean e intuitiva construída com ttkbootstrap
+- **🏗️ Arquitetura Robusta**: Padrão ActiveRecord com SQLModel ORM
+- **⚡ Operações em Lote**: Processamento eficiente de grandes volumes de dados
+- **🔧 Configuração Simples**: Setup fácil e gerenciamento intuitivo
 
-### 1. Leitura periódica do arquivo `bilhetes.txt`
+## 🎯 Funcionalidades
 
-* O TopSoft realiza a leitura do arquivo `bilhetes.txt` a cada **1 minuto**.
-* Utiliza a biblioteca **PygTail** para ler apenas as novas linhas adicionadas desde a última leitura, garantindo eficiência mesmo em arquivos de grande volume.
-* Os dados são enviados automaticamente para o **ActivitySoft**, mantendo os registros sempre atualizados.
-* Na primeira execução, se o arquivo já estiver grande, a leitura inicial poderá levar mais tempo.
+### 🔄 **Processamento de Dados das Catracas**
+- Leitura automática do arquivo `bilhetes.txt` com biblioteca **PyGTail**
+- Processamento incremental (apenas novas linhas) para máxima eficiência
+- Sincronização automática com ActivitySoft a cada intervalo configurável
+- Suporte a reprocessamento com data de corte (offset)
 
-### 2. Exportação da tela de "Acessos"
+### 👥 **Gestão de Estudantes**
+- Sincronização automática de registros de alunos do ActivitySoft
+- Validação e formatação automática de dados
+- Busca por nome, matrícula ou CPF
+- Histórico de acessos por estudante
 
-* A tela de acessos oferece uma visão consolidada de todos os registros processados.
-* Pode ser exportada em **formato JSON**, incluindo informações úteis como:
+### 🎟️ **Gerenciamento de Cartões de Acesso**
+- Vinculação de cartões a estudantes (funcionalidade ausente no ActivitySoft)
+- Geração do arquivo `gi5_cartoes.txt` para as catracas TopData
+- Formatação automática com zeros à esquerda (16 caracteres)
+- Controle de cartões não atribuídos
 
-  * Registros já enviados ao ActivitySoft.
+### 📊 **Monitoramento e Relatórios**
+- Interface em tempo real dos eventos de acesso
+- Exportação de dados em formato JSON
+- Estatísticas de entradas e saídas por data
+- Status de sincronização dos registros
 
-### 3. Exportação de cartões para a catraca
+### ⚙️ **Configurações Avançadas**
+- Intervalo de sincronização configurável
+- Caminho personalizado para arquivos das catracas
+- Execução em segundo plano (system tray)
+- Logs detalhados para troubleshooting
 
-* A aba **"Cartões"** permite gerar o arquivo `gi5_cartões.txt`, no seguinte formato:
+## 📦 Instalação
 
-  * **Número do cartão**: 16 caracteres (com zeros à esquerda).
-  * **Nome da pessoa**: até 40 caracteres, alinhado à esquerda.
-  * **Código fixo**: `"00110"` ao final.
-* Esse arquivo é utilizado pelas catracas da TopData para permitir ou negar acessos.
+### Instalação Rápida (Recomendada)
+1. Baixe o instalador mais recente: [`topsoft_v0.1.0_win64.exe`](https://github.com/viniciusccosta/TopSoft/releases)
+2. Execute o instalador e siga o assistente de setup
+3. Inicie o TopSoft pelo menu Iniciar ou atalho na área de trabalho
 
-### 4. Vínculo entre cartão e aluno/funcionário
+**Requisitos**: Windows 10/11 (64-bit)
 
-* Diferente de outros gestores disponíveis no mercado, o **ActivitySoft não possui um campo interno** para armazenar o vínculo entre o número do cartão/carteirinha e o aluno ou funcionário.
-* Por isso, o próprio **TopSoft** disponibiliza uma aba específica para realizar esse vínculo de forma local.
-* Esses dados também podem ser exportados em **formato JSON** para fins de backup ou portabilidade.
+### Desenvolvimento
+```bash
+# Clone o repositório
+git clone https://github.com/viniciusccosta/TopSoft.git
+cd TopSoft
 
-### 5. Execução contínua e discreta
+# Instale as dependências
+poetry install
 
-* O programa deve estar sempre em execução para garantir o funcionamento da sincronização em tempo real.
-* Quando o usuário tenta fechar a aplicação, ela é minimizada para a bandeja do sistema (system tray) por meio da biblioteca **pystray**.
-* Para encerrar o programa, é necessário clicar com o botão direito no ícone da bandeja e escolher a opção de sair.
+# Execute em modo desenvolvimento
+poetry run python main.py
+```
 
-### 6. Reprocessamento com data de offset
+## 🚀 Primeiros Passos
 
-* Caso seja necessário reutilizar um arquivo antigo `bilhetes.txt`, o TopSoft permite definir uma **data de offset**.
-* O programa continuará lendo o arquivo inteiro, mas irá **ignorar** registros com data anterior ao offset informado, processando apenas os acessos relevantes.
+### 1. Configuração Inicial
+- **Credenciais do ActivitySoft**: Configure sua API key e URL do servidor
+- **Caminho das Catracas**: Aponte para o diretório dos arquivos `bilhetes.txt`
+- **Intervalo de Sync**: Defina a frequência de sincronização (padrão: 5 minutos)
 
-## 💡 Benefícios
+### 2. Importação de Dados
+- A primeira sincronização importará todos os estudantes do ActivitySoft
+- Vincule cartões de acesso aos estudantes na aba "Cartões"
+- Gere o arquivo `gi5_cartoes.txt` para upload nas catracas
 
-* Integração completa entre hardware de controle de acesso e sistema de gestão.
-* Eficiência na leitura de grandes arquivos.
-* Exportações amigáveis para backup e reinstalação.
-* Solução prática para ausência de vínculo nativo entre cartão e aluno no ActivitySoft.
-* Interface simples e funcional, com execução discreta.
+### 3. Monitoramento
+- Acompanhe os eventos de acesso em tempo real na tela principal
+- Verifique logs de sincronização na aba "Configurações"
+- Exporte dados quando necessário para backup
+
+## 🏗️ Arquitetura Técnica
+
+### **Modelos de Dados**
+- **`Aluno`**: Registros de estudantes com métodos de gestão completos
+- **`CartaoAcesso`**: Cartões de acesso com vinculação a estudantes
+- **`Acesso`**: Eventos de entrada/saída com status de sincronização
+
+### **Componentes Principais**
+- **Repository Layer**: Lógica de negócio para operações complexas
+- **API Integration**: Cliente HTTP robusto para comunicação com ActivitySoft
+- **Background Tasks**: Tarefas automatizadas de sincronização e monitoramento
+- **Settings System**: Gerenciamento persistente de configurações
+
+### **Tecnologias Utilizadas**
+- **Python 3.12+**: Linguagem principal
+- **SQLModel**: ORM type-safe para operações de banco
+- **ttkbootstrap**: Interface gráfica moderna
+- **httpx**: Cliente HTTP assíncrono
+- **Poetry**: Gerenciamento de dependências
+
+## 🔧 Scripts de Build
+
+```bash
+# Bump version e build completo
+python scripts/build_all.py patch|minor|major
+
+# Apenas sincronizar versões
+python scripts/sync_version.py
+
+# Build sem bump de versão
+python scripts/build_and_install.py
+```
+
+## 📁 Estrutura do Projeto
+
+```
+TopSoft/
+├── topsoft/           # Módulos principais da aplicação
+│   ├── models.py      # Modelos de dados (Aluno, CartaoAcesso, Acesso)
+│   ├── repository.py  # Lógica de negócio cross-model
+│   ├── frames.py      # Interface gráfica
+│   ├── database.py    # Configuração do banco de dados
+│   └── activitysoft/  # Integração com ActivitySoft API
+├── scripts/           # Scripts de build e utilitários
+├── main.py           # Ponto de entrada da aplicação
+├── installer.iss     # Configuração do Inno Setup
+└── topsoft.spec      # Configuração do PyInstaller
+```
+
+## 📝 Configuração
+
+O TopSoft armazena suas configurações em:
+- **Banco de dados**: `topsoft.db` (SQLite)
+- **Configurações**: `settings.json` (preferências da aplicação)
+- **Logs**: `topsoft.log` (logs da aplicação)
+
+## 🐛 Problemas Conhecidos
+
+- Mudanças nas configurações requerem reinício da aplicação
+- Importações grandes podem levar alguns minutos para completar
+- O ActivitySoft não possui campo nativo para vínculo cartão-estudante
+
+## 💡 Dicas de Uso
+
+- Execute como Administrador para acesso completo ao sistema de arquivos
+- Mantenha backups regulares do arquivo `topsoft.db`
+- Monitore o arquivo de log para diagnóstico de problemas de sincronização
+- Configure intervalos de sincronização adequados ao volume de dados
+
+## 🤝 Contribuindo
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
+3. Commit suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
+4. Push para a branch (`git push origin feature/MinhaFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## 🛠️ Suporte
+
+- **Issues**: [GitHub Issues](https://github.com/viniciusccosta/TopSoft/issues)
+
+---
+
+Desenvolvido com ❤️ para facilitar a integração entre sistemas de controle de acesso e gestão escolar.
