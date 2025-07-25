@@ -402,6 +402,7 @@ def bulk_update_acessos(acessos: List[Acesso]) -> bool:
 
     with Session(engine) as session:
         try:
+            # TODO: add_all para "update" ?
             session.add_all(acessos)
             session.commit()
             logger.info(f"Updated {len(acessos)} access records successfully.")
@@ -518,3 +519,15 @@ def get_or_create_aluno(nome: str, matricula: str = None, **kwargs) -> Aluno:
             session.refresh(aluno)  # Ensure we have the latest state
 
         return aluno
+
+
+def get_aluno_by_name(nome: str) -> Aluno:
+    nome = nome.strip()
+
+    with Session(engine) as session:
+        try:
+            aluno = session.exec(select(Aluno).where(Aluno.nome == nome)).first()
+            return aluno
+        except Exception as e:
+            logger.error(f"Error fetching Aluno by name {nome}: {e}")
+            return None
