@@ -397,6 +397,36 @@ class CartaoAcesso(BaseModel, table=True):
             instance = cls.create(**create_kwargs)
             return instance, True
 
+    @classmethod
+    def get_or_create_by_numeracao(cls, numeracao: str) -> "CartaoAcesso":
+        """Get or create access card by numeracao"""
+        card, created = cls.get_or_create(numeracao=numeracao)
+        return card
+
+    @classmethod
+    def bulk_create_missing(cls, numeracoes: List[str]) -> List["CartaoAcesso"]:
+        """Create multiple cards if they don't exist"""
+        session = cls._get_session()
+
+        # Get existing cards
+        statement = select(cls).where(cls.numeracao.in_(numeracoes))
+        existing_cards = session.exec(statement).all()
+        existing_numeracoes = {card.numeracao for card in existing_cards}
+
+        # Create missing cards
+        missing_numeracoes = set(numeracoes) - existing_numeracoes
+        if missing_numeracoes:
+            new_cards = [cls(numeracao=num) for num in missing_numeracoes]
+            session.add_all(new_cards)
+            session.commit()
+
+            # Refresh to get IDs
+            for card in new_cards:
+                session.refresh(card)
+
+            return new_cards
+        return []
+
     # ...existing code...
 
 
@@ -581,6 +611,67 @@ class Acesso(BaseModel, table=True):
         except Exception as e:
             logger.error(f"Failed to bulk update synced status: {e}")
             session.rollback()
+
+    @classmethod
+    def get_existing_access(
+        cls, cartao_id: int, date_obj: "date", time_obj: "time"
+    ) -> Optional["Acesso"]:
+        """Check if access record already exists"""
+        session = cls._get_session()
+        statement = select(cls).where(
+            cls.cartao_acesso_id == cartao_id,
+            cls.date == date_obj,
+            cls.time == time_obj,
+        )
+        return session.exec(statement).first()
+
+    @classmethod
+    def create_access_record(
+        cls,
+        marcacao: str,
+        date_obj: "date",
+        time_obj: "time",
+        catraca: str,
+        cartao_id: int,
+    ) -> "Acesso":
+        """Create a new access record"""
+        return cls.create(
+            marcacao=marcacao,
+            date=date_obj,
+            time=time_obj,
+            catraca=catraca,
+            cartao_acesso_id=cartao_id,
+            synced=False,
+        )
+
+    @classmethod
+    def bulk_create_access_records(cls, access_data: List[dict]) -> List["Acesso"]:
+        """Bulk create access records"""
+        if not access_data:
+            return []
+
+        session = cls._get_session()
+        new_records = []
+
+        for data in access_data:
+            record = cls(
+                marcacao=data["marcacao"],
+                date=data["date"],
+                time=data["time"],
+                catraca=data["catraca"],
+                cartao_acesso_id=data["cartao_id"],
+                synced=False,
+            )
+            new_records.append(record)
+
+        session.add_all(new_records)
+        session.commit()
+
+        # Refresh to get IDs
+        for record in new_records:
+            session.refresh(record)
+
+        return new_records
 
     def __repr__(self):
         return (
