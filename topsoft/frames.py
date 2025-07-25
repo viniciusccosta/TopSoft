@@ -9,12 +9,15 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
+from topsoft.models import CartaoAcesso
 from topsoft.repository import (
-    bind_matricula_to_cartao_acesso,
-    get_acessos,
-    get_alunos,
-    get_cartoes_acesso,
+    bind_matricula_to_cartao_acesso_v2 as bind_matricula_to_cartao_acesso,
 )
+from topsoft.repository import bulk_update_acessos_v2 as bulk_update_acessos
+from topsoft.repository import get_acessos_v2 as get_acessos
+from topsoft.repository import get_aluno_by_name_v2 as get_aluno_by_name
+from topsoft.repository import get_alunos_v2 as get_alunos
+from topsoft.repository import get_cartoes_acesso_v2 as get_cartoes_acesso
 from topsoft.secrets import get_api_key, set_api_key
 from topsoft.settings import (
     get_bilhetes_path,
@@ -47,13 +50,25 @@ class CartoesAcessoFrame(Frame):
         self.parent = parent
         self.controller = controller
 
-        # Export button
+        # Button frame to hold both buttons at the top
+        button_frame = ttk.Frame(self)
+        button_frame.pack(expand=False, fill="x", padx=10, pady=10)
+
+        # Import button (on the left)
+        self.import_button = ttk.Button(
+            button_frame,
+            text="Importar Cartões",
+            command=lambda: self.import_cartoes_acesso(),
+        )
+        self.import_button.pack(expand=False, padx=(0, 5), pady=0, side="left")
+
+        # Export button (on the right of import button)
         self.export_button = ttk.Button(
-            self,
+            button_frame,
             text="Exportar Cartões",
             command=lambda: self.export_cartoes_acesso(),
         )
-        self.export_button.pack(expand=False, padx=10, pady=10, side="top")
+        self.export_button.pack(expand=False, padx=(5, 0), pady=0, side="left")
 
         # Define table columns
         cols = [
@@ -213,6 +228,56 @@ class CartoesAcessoFrame(Frame):
             with open(filename, "w", encoding="utf-8") as file:
                 for line in formatted_data:
                     file.write(line + "\n")
+
+    def import_cartoes_acesso(self):
+        """
+        Imports CartaoAcesso data from a file.
+        This function is called when the user clicks the import button.
+        """
+
+        # Ask user for file to import
+        filepath = filedialog.askopenfilename(
+            title="Importar Cartões de Acesso",
+            filetypes=[("Text files", "*.txt")],
+        )
+
+        if not filepath:
+            return
+
+        # Read the file and gather data
+        with open(filepath, "r", encoding="utf-8") as file:
+            for line in file:
+                line = line.strip()
+
+                if line and len(line) >= 56:  # Ensure line is long enough
+                    numero = line[0:16]
+                    nome = line[16 : 16 + 40].strip()
+
+                    # Create a new CartaoAcesso instance
+                    cartao, created = CartaoAcesso.get_or_create(numeracao=numero)
+
+                    # If the card already exists, skip to the next line
+                    if not created:
+                        logger.info(f"Cartão de Acesso {numero} já existe, pulando...")
+                        continue
+
+                    # TODO: Uma possibilidade seria vincular um cartão, que ainda não foi vinculado, a um aluno existente
+                    # TODO: Outra possibilidade seria atualizar o cartão a cada importação
+
+                    # Set the associated Aluno if the name is provided
+                    # TODO: Lidar com caso de nomes duplicados
+                    aluno = get_aluno_by_name(nome)
+
+                    if aluno:
+                        cartao.aluno = aluno
+                        cartao.save()
+                        logger.info(
+                            f"Cartão de Acesso {numero} criado e vinculado a Aluno {nome}"
+                        )
+                    else:
+                        logger.info(f"Cartão de Acesso {numero} criado")
+
+        # TODO: Bulk get/create/update CartaoAcesso and Aluno instead within a loop
 
 
 class AcessosFrame(Frame):
