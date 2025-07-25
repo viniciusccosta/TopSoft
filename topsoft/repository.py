@@ -521,13 +521,101 @@ def get_or_create_aluno(nome: str, matricula: str = None, **kwargs) -> Aluno:
         return aluno
 
 
-def get_aluno_by_name(nome: str) -> Aluno:
-    nome = nome.strip()
+# ===== NEW MODEL INTERFACE FUNCTIONS =====
+# These functions use the updated models that handle sessions internally
 
-    with Session(engine) as session:
-        try:
-            aluno = session.exec(select(Aluno).where(Aluno.nome == nome)).first()
-            return aluno
-        except Exception as e:
-            logger.error(f"Error fetching Aluno by name {nome}: {e}")
-            return None
+
+def get_aluno_by_name_v2(nome: str) -> Aluno:
+    """Get student by name using new model interface"""
+    nome = nome.strip()
+    try:
+        return Aluno.filter_by(nome=nome)[0] if Aluno.filter_by(nome=nome) else None
+    except Exception as e:
+        logger.error(f"Error fetching Aluno by name {nome}: {e}")
+        return None
+
+
+def get_alunos_v2(sort_by=None, offset=None, limit=None):
+    """Get all students using new model interface"""
+    try:
+        alunos = Aluno.get_all()
+
+        # Apply sorting if specified
+        if sort_by and hasattr(Aluno, sort_by):
+            alunos = sorted(alunos, key=lambda x: getattr(x, sort_by) or "")
+
+        # Apply pagination if specified
+        if offset is not None and limit is not None:
+            alunos = alunos[offset : offset + limit]
+        elif limit is not None:
+            alunos = alunos[:limit]
+
+        return alunos
+    except Exception as e:
+        logger.error(f"Error fetching alunos: {e}")
+        return []
+
+
+def get_cartoes_acesso_v2():
+    """Get all access cards using new model interface"""
+    try:
+        return CartaoAcesso.get_all()
+    except Exception as e:
+        logger.error(f"Error fetching cartoes de acesso: {e}")
+        return []
+
+
+def get_acessos_v2(offset=None, limit=None):
+    """Get all access records using new model interface"""
+    try:
+        acessos = Acesso.get_all()
+
+        # Apply pagination if specified
+        if offset is not None and limit is not None:
+            acessos = acessos[offset : offset + limit]
+        elif limit is not None:
+            acessos = acessos[:limit]
+
+        return acessos
+    except Exception as e:
+        logger.error(f"Error fetching acessos: {e}")
+        return []
+
+
+def bind_matricula_to_cartao_acesso_v2(
+    cartao_numeracao: str, aluno_matricula: str
+) -> bool:
+    """Bind a student to an access card using new model interface"""
+    try:
+        # Find the card
+        cartao = CartaoAcesso.find_by_numeracao(cartao_numeracao)
+        if not cartao:
+            logger.error(f"Cartão {cartao_numeracao} not found")
+            return False
+
+        # Find the student
+        aluno = Aluno.find_by_matricula(aluno_matricula)
+        if not aluno:
+            logger.error(f"Aluno with matricula {aluno_matricula} not found")
+            return False
+
+        # Bind them
+        cartao.assign_to_aluno(aluno.id)
+        logger.info(
+            f"Successfully bound cartão {cartao_numeracao} to aluno {aluno.nome}"
+        )
+        return True
+
+    except Exception as e:
+        logger.error(f"Error binding cartão to aluno: {e}")
+        return False
+
+
+def bulk_update_acessos_v2(acesso_ids: List[int]) -> bool:
+    """Mark multiple access records as synced using new model interface"""
+    try:
+        Acesso.bulk_mark_synced(acesso_ids)
+        return True
+    except Exception as e:
+        logger.error(f"Error bulk updating acessos: {e}")
+        return False
