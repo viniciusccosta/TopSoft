@@ -6,7 +6,7 @@ import httpx
 from packaging import version
 
 from topsoft.constants import UPDATE_URL
-from topsoft.repository import get_not_synced_acessos
+from topsoft.models import Acesso
 from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
     fetch_and_sync_students,
@@ -75,7 +75,7 @@ def task_processamento(stop_event, queue):
             logger.debug("Fetching not synced access records")
 
             # Fetch access records that are not synced (from the database):
-            acessos = get_not_synced_acessos()
+            acessos = Acesso.get_unsynced()
             logger.info(f"Found {len(acessos)} not synced access records")
 
             if stop_event.is_set():

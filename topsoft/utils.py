@@ -11,14 +11,8 @@ from pygtail import Pygtail
 
 from topsoft.activitysoft.api import get_students_from_api, post_accessos_concurrently
 from topsoft.constants import OFFSET_PATH
-from topsoft.models import Acesso
-from topsoft.repository import (
-    bulk_process_turnstile_events,
-    bulk_update_synced_status_acessos,
-    process_turnstile_event,
-    update_acesso,
-    update_student_records,
-)
+from topsoft.models import Acesso, Aluno
+from topsoft.repository import bulk_process_turnstile_events, process_turnstile_event
 from topsoft.settings import get_interval
 
 logger = logging.getLogger(__name__)
@@ -223,7 +217,7 @@ def fetch_and_sync_students():
 
     # Update database with the fetched student data:
     try:
-        update_student_records(students_data)
+        Aluno.bulk_update_from_json(students_data)
         logger.info("Student data synchronization completed successfully")
         return True
     except Exception as e:
@@ -263,7 +257,7 @@ async def post_acessos_and_update_synced_status(acessos):
 
         # Bulk update the synced status of access records:
         logger.debug(f"Updating synced status for {len(sucess_results)} access records")
-        bulk_update_synced_status_acessos(sucess_results, status=True)
+        Acesso.bulk_update_synced_status(sucess_results, status=True)
 
         # Log and return the successfully processed access records:
         logger.info(f"Successfully processed {len(sucess_results)} access records")

@@ -9,15 +9,10 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
-from topsoft.models import CartaoAcesso
+from topsoft.models import Acesso, Aluno, CartaoAcesso
 from topsoft.repository import (
     bind_matricula_to_cartao_acesso_v2 as bind_matricula_to_cartao_acesso,
 )
-from topsoft.repository import bulk_update_acessos_v2 as bulk_update_acessos
-from topsoft.repository import get_acessos_v2 as get_acessos
-from topsoft.repository import get_aluno_by_name_v2 as get_aluno_by_name
-from topsoft.repository import get_alunos_v2 as get_alunos
-from topsoft.repository import get_cartoes_acesso_v2 as get_cartoes_acesso
 from topsoft.secrets import get_api_key, set_api_key
 from topsoft.settings import (
     get_bilhetes_path,
@@ -114,7 +109,7 @@ class CartoesAcessoFrame(Frame):
         # TODO: Just update without clearing the table
 
         # Fetch all CartaoAcesso records with their associated Aluno
-        cartoes = get_cartoes_acesso()
+        cartoes = CartaoAcesso.get_all()
 
         # Populate the table
         row_datas = []
@@ -176,7 +171,7 @@ class CartoesAcessoFrame(Frame):
         aluno_dropdown.pack(padx=10, pady=5)
 
         # Fetch all Aluno records for the dropdown
-        alunos = get_alunos(sort_by="nome")
+        alunos = Aluno.get_all(sort_by="nome")
         aluno_dropdown["values"] = [
             f"{aluno.nome} ({aluno.matricula})" for aluno in alunos
         ]
@@ -202,7 +197,7 @@ class CartoesAcessoFrame(Frame):
         """
 
         # 1) Retrieve all CartaoAcesso directly from the database
-        cartoes = get_cartoes_acesso()
+        cartoes = CartaoAcesso.get_all()
 
         # 2) Format the data according to the expected output
         formatted_data = []
@@ -266,7 +261,7 @@ class CartoesAcessoFrame(Frame):
 
                     # Set the associated Aluno if the name is provided
                     # TODO: Lidar com caso de nomes duplicados
-                    aluno = get_aluno_by_name(nome)
+                    aluno = Aluno.find_by_name(nome)
 
                     if aluno:
                         cartao.aluno = aluno
@@ -349,7 +344,7 @@ class AcessosFrame(Frame):
         Thread worker for populating the table.
         """
         # Fetch data in background thread
-        acessos = get_acessos()
+        acessos = Acesso.get_all()
 
         # Prepare all data
         rows_data = []
