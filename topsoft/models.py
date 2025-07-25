@@ -23,8 +23,16 @@ class BaseModel(SQLModel):
     """Base model with common CRUD operations - Django-style ActiveRecord pattern"""
 
     @classmethod
-    def create(cls, session: Session, **kwargs) -> "BaseModel":
+    def _get_session(cls) -> Session:
+        """Get database session - imported here to avoid circular imports"""
+        from topsoft.database import get_session
+
+        return get_session()
+
+    @classmethod
+    def create(cls, **kwargs) -> "BaseModel":
         """Create and save a new instance"""
+        session = cls._get_session()
         instance = cls(**kwargs)
         session.add(instance)
         session.commit()
@@ -32,19 +40,22 @@ class BaseModel(SQLModel):
         return instance
 
     @classmethod
-    def get_by_id(cls, session: Session, id: int) -> Optional["BaseModel"]:
+    def get_by_id(cls, id: int) -> Optional["BaseModel"]:
         """Get instance by ID"""
+        session = cls._get_session()
         return session.get(cls, id)
 
     @classmethod
-    def get_all(cls, session: Session) -> List["BaseModel"]:
+    def get_all(cls) -> List["BaseModel"]:
         """Get all instances"""
+        session = cls._get_session()
         statement = select(cls)
         return session.exec(statement).all()
 
     @classmethod
-    def filter_by(cls, session: Session, **kwargs) -> List["BaseModel"]:
+    def filter_by(cls, **kwargs) -> List["BaseModel"]:
         """Filter instances by given criteria"""
+        session = cls._get_session()
         statement = select(cls)
         for key, value in kwargs.items():
             if hasattr(cls, key):
@@ -52,10 +63,9 @@ class BaseModel(SQLModel):
         return session.exec(statement).all()
 
     @classmethod
-    def get_or_create(
-        cls, session: Session, defaults=None, **kwargs
-    ) -> tuple["BaseModel", bool]:
+    def get_or_create(cls, defaults=None, **kwargs) -> tuple["BaseModel", bool]:
         """Get instance or create if it doesn't exist"""
+        session = cls._get_session()
         statement = select(cls)
         for key, value in kwargs.items():
             if hasattr(cls, key):
@@ -68,25 +78,27 @@ class BaseModel(SQLModel):
             create_kwargs = kwargs.copy()
             if defaults:
                 create_kwargs.update(defaults)
-            instance = cls.create(session, **create_kwargs)
+            instance = cls.create(**create_kwargs)
             return instance, True
 
-    def save(self, session: Session) -> "BaseModel":
+    def save(self) -> "BaseModel":
         """Save current instance"""
+        session = self._get_session()
         session.add(self)
         session.commit()
         session.refresh(self)
         return self
 
-    def update(self, session: Session, **kwargs) -> "BaseModel":
+    def update(self, **kwargs) -> "BaseModel":
         """Update current instance"""
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-        return self.save(session)
+        return self.save()
 
-    def delete(self, session: Session) -> None:
+    def delete(self) -> None:
         """Delete current instance"""
+        session = self._get_session()
         session.delete(self)
         session.commit()
 
@@ -136,34 +148,38 @@ class Aluno(BaseModel, table=True):
 
     # Custom model-specific methods
     @classmethod
-    def find_by_matricula(cls, session: Session, matricula: str) -> Optional["Aluno"]:
+    def find_by_matricula(cls, matricula: str) -> Optional["Aluno"]:
         """Find student by matricula"""
+        session = cls._get_session()
         statement = select(cls).where(cls.matricula == matricula)
         return session.exec(statement).first()
 
     @classmethod
-    def find_by_cpf(cls, session: Session, cpf: str) -> Optional["Aluno"]:
+    def find_by_cpf(cls, cpf: str) -> Optional["Aluno"]:
         """Find student by CPF"""
+        session = cls._get_session()
         statement = select(cls).where(cls.cpf == cpf)
         return session.exec(statement).first()
 
     @classmethod
-    def search_by_name(cls, session: Session, name_part: str) -> List["Aluno"]:
+    def search_by_name(cls, name_part: str) -> List["Aluno"]:
         """Search students by name (partial match)"""
+        session = cls._get_session()
         statement = select(cls).where(cls.nome.ilike(f"%{name_part}%"))
         return session.exec(statement).all()
 
-    def add_cartao_acesso(self, session: Session, numeracao: str) -> "CartaoAcesso":
+    def add_cartao_acesso(self, numeracao: str) -> "CartaoAcesso":
         """Add a new access card to this student"""
-        cartao = CartaoAcesso.create(session, numeracao=numeracao, aluno_id=self.id)
+        cartao = CartaoAcesso.create(numeracao=numeracao, aluno_id=self.id)
         return cartao
 
-    def get_active_cartoes(self, session: Session) -> List["CartaoAcesso"]:
+    def get_active_cartoes(self) -> List["CartaoAcesso"]:
         """Get all active access cards for this student"""
         return [cartao for cartao in self.cartoes_acesso if cartao.aluno_id == self.id]
 
-    def get_recent_acessos(self, session: Session, days: int = 30) -> List["Acesso"]:
+    def get_recent_acessos(self, days: int = 30) -> List["Acesso"]:
         """Get recent access records for this student"""
+        session = self._get_session()
         cutoff_date = date.today() - timedelta(days=days)
         cartao_ids = [cartao.id for cartao in self.cartoes_acesso]
         if not cartao_ids:
@@ -201,34 +217,35 @@ class CartaoAcesso(BaseModel, table=True):
             return None
 
     @classmethod
-    def find_by_numeracao(
-        cls, session: Session, numeracao: str
-    ) -> Optional["CartaoAcesso"]:
+    def find_by_numeracao(cls, numeracao: str) -> Optional["CartaoAcesso"]:
         """Find access card by numeracao"""
+        session = cls._get_session()
         statement = select(cls).where(cls.numeracao == numeracao)
         return session.exec(statement).first()
 
     @classmethod
-    def get_unassigned(cls, session: Session) -> List["CartaoAcesso"]:
+    def get_unassigned(cls) -> List["CartaoAcesso"]:
         """Get all unassigned access cards"""
+        session = cls._get_session()
         statement = select(cls).where(cls.aluno_id.is_(None))
         return session.exec(statement).all()
 
-    def get_recent_acessos(self, session: Session, days: int = 30) -> List["Acesso"]:
+    def get_recent_acessos(self, days: int = 30) -> List["Acesso"]:
         """Get recent access records for this card"""
+        session = self._get_session()
         cutoff_date = date.today() - timedelta(days=days)
         statement = select(Acesso).where(
             Acesso.cartao_acesso_id == self.id, Acesso.date >= cutoff_date
         )
         return session.exec(statement).all()
 
-    def assign_to_aluno(self, session: Session, aluno_id: int) -> "CartaoAcesso":
+    def assign_to_aluno(self, aluno_id: int) -> "CartaoAcesso":
         """Assign this card to a student"""
-        return self.update(session, aluno_id=aluno_id)
+        return self.update(aluno_id=aluno_id)
 
-    def unassign(self, session: Session) -> "CartaoAcesso":
+    def unassign(self) -> "CartaoAcesso":
         """Unassign this card from any student"""
-        return self.update(session, aluno_id=None)
+        return self.update(aluno_id=None)
 
 
 class Acesso(BaseModel, table=True):
@@ -263,32 +280,34 @@ class Acesso(BaseModel, table=True):
 
     # Custom model-specific methods
     @classmethod
-    def get_unsynced(cls, session: Session) -> List["Acesso"]:
+    def get_unsynced(cls) -> List["Acesso"]:
         """Get all unsynced access records"""
+        session = cls._get_session()
         statement = select(cls).where(cls.synced == False)
         return session.exec(statement).all()
 
     @classmethod
-    def get_by_date_range(
-        cls, session: Session, start_date: "date", end_date: "date"
-    ) -> List["Acesso"]:
+    def get_by_date_range(cls, start_date: "date", end_date: "date") -> List["Acesso"]:
         """Get access records within date range"""
+        session = cls._get_session()
         statement = select(cls).where(cls.date >= start_date, cls.date <= end_date)
         return session.exec(statement).all()
 
     @classmethod
-    def get_by_cartao(cls, session: Session, cartao_id: int) -> List["Acesso"]:
+    def get_by_cartao(cls, cartao_id: int) -> List["Acesso"]:
         """Get all access records for a specific card"""
+        session = cls._get_session()
         statement = select(cls).where(cls.cartao_acesso_id == cartao_id)
         return session.exec(statement).all()
 
-    def mark_synced(self, session: Session) -> "Acesso":
+    def mark_synced(self) -> "Acesso":
         """Mark this access record as synced"""
-        return self.update(session, synced=True)
+        return self.update(synced=True)
 
     @classmethod
-    def bulk_mark_synced(cls, session: Session, access_ids: List[int]) -> None:
+    def bulk_mark_synced(cls, access_ids: List[int]) -> None:
         """Mark multiple access records as synced"""
+        session = cls._get_session()
         statement = select(cls).where(cls.id.in_(access_ids))
         records = session.exec(statement).all()
         for record in records:
@@ -297,8 +316,9 @@ class Acesso(BaseModel, table=True):
         session.commit()
 
     @classmethod
-    def get_entries_exits_by_date(cls, session: Session, target_date: "date") -> dict:
+    def get_entries_exits_by_date(cls, target_date: "date") -> dict:
         """Get count of entries and exits for a specific date"""
+        session = cls._get_session()
         statement = select(cls).where(cls.date == target_date)
         records = session.exec(statement).all()
 
