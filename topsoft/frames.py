@@ -224,6 +224,9 @@ class CartoesAcessoFrame(Frame):
                 for line in formatted_data:
                     file.write(line + "\n")
 
+        # 5) Show success message
+        Messagebox.show_info("Cartões de Acesso exportados com sucesso!", "Sucesso")
+
     def import_cartoes_acesso(self):
         """
         Imports CartaoAcesso data from a file.
@@ -238,6 +241,11 @@ class CartoesAcessoFrame(Frame):
 
         if not filepath:
             return
+
+        # Lock GUI # TODO: self.controller.lock_gui()
+        # TODO: Progressbar
+        self.import_button.config(state="disabled")
+        self.export_button.config(state="disabled")
 
         # Read the file and gather data
         with open(filepath, "r", encoding="utf-8") as file:
@@ -273,6 +281,14 @@ class CartoesAcessoFrame(Frame):
                         logger.info(f"Cartão de Acesso {numero} criado")
 
         # TODO: Bulk get/create/update CartaoAcesso and Aluno instead within a loop
+
+        # Success message
+        Messagebox.show_info("Cartões de Acesso importados com sucesso!", "Sucesso")
+
+        # Unlock GUI # TODO: self.controller.unlock_gui()
+        # TODO: Hide and stop Progressbar
+        self.import_button.config(state="normal")
+        self.export_button.config(state="normal")
 
 
 class AcessosFrame(Frame):
