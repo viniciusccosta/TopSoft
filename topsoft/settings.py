@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from pickledb import PickleDB
 
@@ -48,7 +49,10 @@ def set_interval(interval: int) -> None:
 
 
 def get_cutoff():
-    return get_or_set("cutoff", "01/05/2025")
+    return get_or_set(
+        "cutoff",
+        date.today().strftime("%d/%m/%Y"),
+    )
 
 
 def set_cutoff(cutoff):
