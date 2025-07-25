@@ -148,6 +148,45 @@ class Aluno(BaseModel, table=True):
 
     # Custom model-specific methods
     @classmethod
+    def get_all(cls, sort_by=None, offset=None, limit=None) -> List["Aluno"]:
+        """Get all students with optional sorting and pagination"""
+        try:
+            session = cls._get_session()
+            statement = select(cls)
+
+            # Apply sorting at database level if possible
+            if sort_by and hasattr(cls, sort_by):
+                statement = statement.order_by(getattr(cls, sort_by))
+
+            # Apply pagination at database level
+            if offset is not None:
+                statement = statement.offset(offset)
+            if limit is not None:
+                statement = statement.limit(limit)
+
+            alunos = session.exec(statement).all()
+
+            # Fallback to Python sorting if not applied at DB level
+            if sort_by and hasattr(cls, sort_by) and offset is None and limit is None:
+                alunos = sorted(alunos, key=lambda x: getattr(x, sort_by) or "")
+
+            return alunos
+        except Exception as e:
+            logger.error(f"Error fetching alunos: {e}")
+            return []
+
+    @classmethod
+    def find_by_name(cls, nome: str) -> Optional["Aluno"]:
+        """Find student by exact name"""
+        nome = nome.strip()
+        try:
+            results = cls.filter_by(nome=nome)
+            return results[0] if results else None
+        except Exception as e:
+            logger.error(f"Error fetching Aluno by name {nome}: {e}")
+            return None
+
+    @classmethod
     def find_by_matricula(cls, matricula: str) -> Optional["Aluno"]:
         """Find student by matricula"""
         session = cls._get_session()
@@ -190,6 +229,76 @@ class Aluno(BaseModel, table=True):
         )
         return session.exec(statement).all()
 
+    @classmethod
+    def get_or_create(cls, defaults=None, **kwargs) -> tuple["Aluno", bool]:
+        """Enhanced get_or_create that handles Aluno-specific logic"""
+        # Handle nome-based lookup with additional kwargs support
+        session = cls._get_session()
+
+        # Drop unknown kwargs for database operations
+        valid_kwargs = {k: v for k, v in kwargs.items() if hasattr(cls, k)}
+
+        # Try to find existing student
+        statement = select(cls)
+        for key, value in valid_kwargs.items():
+            if hasattr(cls, key):
+                statement = statement.where(getattr(cls, key) == value)
+
+        instance = session.exec(statement).first()
+        if instance:
+            return instance, False
+        else:
+            # Create new student
+            create_kwargs = valid_kwargs.copy()
+            if defaults:
+                # Only add defaults that are valid model fields
+                valid_defaults = {k: v for k, v in defaults.items() if hasattr(cls, k)}
+                create_kwargs.update(valid_defaults)
+
+            instance = cls.create(**create_kwargs)
+            return instance, True
+
+    @classmethod
+    def bulk_update_from_json(cls, alunos_json: List[dict]) -> None:
+        """Bulk update student records from JSON data (typically from API sync)"""
+        session = cls._get_session()
+
+        try:
+            for data in alunos_json:
+                # Convert date string to datetime if needed
+                if data.get("data_nascimento"):
+                    try:
+                        data["data_nascimento"] = datetime.fromisoformat(
+                            data["data_nascimento"]
+                        )
+                    except ValueError:
+                        pass  # leave as-is or set None
+
+                # Build or update the Aluno instance
+                aluno = session.get(cls, data["id"])
+                if aluno:
+                    # Update existing student
+                    for key, val in data.items():
+                        if hasattr(cls, key):
+                            setattr(aluno, key, val)
+                else:
+                    # Create new student
+                    valid_data = {
+                        key: val for key, val in data.items() if hasattr(cls, key)
+                    }
+                    aluno = cls(**valid_data)
+                    session.add(aluno)
+
+            session.commit()
+            logger.info(f"Synced {len(alunos_json)} alunos.")
+
+        except Exception as e:
+            logger.error(f"Error bulk updating students from JSON: {e}")
+            session.rollback()
+            raise
+
+    # ...existing code...
+
 
 class CartaoAcesso(BaseModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -203,6 +312,19 @@ class CartaoAcesso(BaseModel, table=True):
     aluno: Optional[Aluno] = Relationship(back_populates="cartoes_acesso")
 
     acessos: List["Acesso"] = Relationship(back_populates="cartao_acesso")
+
+    @classmethod
+    def get_all(cls) -> List["CartaoAcesso"]:
+        """Get all access cards with their associated students"""
+        try:
+            from sqlalchemy.orm import joinedload
+
+            session = cls._get_session()
+            statement = select(cls).options(joinedload(cls.aluno))
+            return session.exec(statement).all()
+        except Exception as e:
+            logger.error(f"Error fetching cartoes de acesso: {e}")
+            return []
 
     @staticmethod
     def from_string(data: str) -> Optional["CartaoAcesso"]:
@@ -247,6 +369,36 @@ class CartaoAcesso(BaseModel, table=True):
         """Unassign this card from any student"""
         return self.update(aluno_id=None)
 
+    @classmethod
+    def get_or_create(cls, defaults=None, **kwargs) -> tuple["CartaoAcesso", bool]:
+        """Enhanced get_or_create that handles CartaoAcesso-specific logic"""
+        session = cls._get_session()
+
+        # Ensure numeracao is properly formatted with leading zeros
+        if "numeracao" in kwargs:
+            # TODO: Make this configurable (16 or 5 characters)
+            kwargs["numeracao"] = str(kwargs["numeracao"]).zfill(16)
+
+        # Try to find existing card
+        statement = select(cls)
+        for key, value in kwargs.items():
+            if hasattr(cls, key):
+                statement = statement.where(getattr(cls, key) == value)
+
+        instance = session.exec(statement).first()
+        if instance:
+            return instance, False
+        else:
+            # Create new card
+            create_kwargs = kwargs.copy()
+            if defaults:
+                create_kwargs.update(defaults)
+
+            instance = cls.create(**create_kwargs)
+            return instance, True
+
+    # ...existing code...
+
 
 class Acesso(BaseModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -280,10 +432,40 @@ class Acesso(BaseModel, table=True):
 
     # Custom model-specific methods
     @classmethod
+    def get_all(cls, offset=None, limit=None) -> List["Acesso"]:
+        """Get all access records with pagination, ordered from most recent to oldest"""
+        try:
+            from sqlalchemy.orm import joinedload
+
+            session = cls._get_session()
+            statement = (
+                select(cls)
+                .options(joinedload(cls.cartao_acesso))
+                .order_by(cls.date.desc(), cls.time.desc())
+            )
+
+            # Apply pagination if specified
+            if offset is not None:
+                statement = statement.offset(offset)
+            if limit is not None:
+                statement = statement.limit(limit)
+
+            return session.exec(statement).all()
+        except Exception as e:
+            logger.error(f"Error fetching acessos: {e}")
+            return []
+
+    @classmethod
     def get_unsynced(cls) -> List["Acesso"]:
-        """Get all unsynced access records"""
+        """Get all unsynced access records with related cartao_acesso and aluno eagerly loaded"""
+        from sqlalchemy.orm import joinedload
+
         session = cls._get_session()
-        statement = select(cls).where(cls.synced == False)
+        statement = (
+            select(cls)
+            .where(cls.synced == False)
+            .options(joinedload(cls.cartao_acesso).joinedload(CartaoAcesso.aluno))
+        )
         return session.exec(statement).all()
 
     @classmethod
@@ -326,6 +508,79 @@ class Acesso(BaseModel, table=True):
         exits = sum(1 for r in records if r.marcacao == "011")
 
         return {"entries": entries, "exits": exits, "total": len(records)}
+
+    @classmethod
+    def update_by_id(cls, acesso_id: int, **kwargs) -> bool:
+        """Update an access record by its ID"""
+        try:
+            session = cls._get_session()
+            acesso = session.get(cls, acesso_id)
+            if not acesso:
+                logger.error(f"Acesso with ID {acesso_id} not found.")
+                return False
+
+            for key, value in kwargs.items():
+                if hasattr(acesso, key):
+                    setattr(acesso, key, value)
+
+            session.add(acesso)
+            session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating acesso {acesso_id}: {e}")
+            return False
+
+    @classmethod
+    def bulk_update(cls, acessos: List["Acesso"]) -> bool:
+        """Bulk update access records in the database"""
+        if not acessos:
+            logger.warning("No access records to update.")
+            return False
+
+        try:
+            session = cls._get_session()
+            session.add_all(acessos)
+            session.commit()
+            logger.info(f"Updated {len(acessos)} access records successfully.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to bulk update access records: {e}")
+            session.rollback()
+            return False
+
+    @classmethod
+    def bulk_update_synced_status(cls, acessos: List["Acesso"], status: bool) -> bool:
+        """Bulk update the synced status of access records"""
+        if not acessos:
+            logger.warning("No access records to update.")
+            return False
+
+        try:
+            session = cls._get_session()
+            for acesso in acessos:
+                acesso.synced = status
+                session.add(acesso)
+            session.commit()
+            logger.info(f"Updated {len(acessos)} access records to synced={status}.")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to bulk update access records: {e}")
+            session.rollback()
+            return False
+
+    @classmethod
+    def bulk_update_synced_simple(cls, acessos) -> None:
+        """Simple bulk update for synced status (legacy compatibility)"""
+        try:
+            session = cls._get_session()
+            for acesso in acessos:
+                acesso.synced = True
+                session.add(acesso)
+            session.commit()
+            logger.info(f"Updated {len(acessos)} access records as synced.")
+        except Exception as e:
+            logger.error(f"Failed to bulk update synced status: {e}")
+            session.rollback()
 
     def __repr__(self):
         return (
