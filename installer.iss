@@ -1,6 +1,6 @@
 #define MyAppName "TopSoft"
-#define MyAppVersion "0.0.1"
-#define MyOutputBaseFilename "topsoft_v0.0.1_win64"
+#define MyAppVersion "0.0.2"
+#define MyOutputBaseFilename "topsoft_v0.0.2_win64"
 #define MyAppPublisher "Vinicius Costa"
 #define MyAppURL "https://github.com/viniciusccosta"
 #define MyAppExeName "topsoft.exe"

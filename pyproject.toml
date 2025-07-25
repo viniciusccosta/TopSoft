@@ -1,6 +1,6 @@
 [project]
 name = "topsoft"
-version = "0.0.1"
+version = "0.0.2"
 description = "Integração entre as catracas Topdata e o ActivitySoft."
 authors = [
     {name = "viniciusccosta",email = "viniciusccosta95@gmail.com"}
