@@ -1,157 +1,127 @@
 import asyncio
 import logging
 from datetime import datetime
+from queue import Empty
 
-import httpx
-from packaging import version
-
-from topsoft.constants import UPDATE_URL
 from topsoft.models import Acesso
 from topsoft.settings import get_bilhetes_path, get_cutoff
 from topsoft.utils import (
     fetch_and_sync_students,
-    get_current_version,
-    ingest_bilhetes,
     post_acessos_and_update_synced_status,
+    process_events_to_database,
+    read_bilhetes_fast,
     wait_for_interval,
-    wait_until_next_hour,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def task_processamento(stop_event, queue):
+# Task 1: Fast file reader and queueing new transactions
+def task_file_reader(stop_event, queue):
     """
-    Main background processing task.
+    Reads the bilhetes file as fast as possible, detects new transactions, and queues them for DB insertion.
+    This task only reads the file and queues raw data - no database operations.
     """
-
-    logger.info("Starting background processing task")
-
+    logger.info("Starting file reader task")
     while not stop_event.is_set():
         try:
-            # 1 ========================================================================
-            # Bilhetes path:
-            logger.debug("Fetching bilhetes path")
-
             bilhetes_path = get_bilhetes_path()
             if not bilhetes_path or bilhetes_path == "":
                 logger.warning("Bilhetes path not found")
+                wait_for_interval(stop_event)
                 continue
 
-            # Check if the stop event is set before proceeding:
-            if stop_event.is_set():
-                break
+            # Fast file reading without database operations
+            logger.debug(f"Fast reading bilhetes from {bilhetes_path}")
+            new_events = read_bilhetes_fast(bilhetes_path, stop_event)
 
-            # 2 ========================================================================
-            # Fetch alunos (from API) and sync them to the database:
-            logger.debug("Fetching and syncing students")
+            if new_events:
+                logger.info(
+                    f"Found {len(new_events)} new events, queueing for processing"
+                )
+                queue.put(("PROCESS_EVENTS", new_events))
 
-            # Attempt to fetch and sync students:
-            if not fetch_and_sync_students():
-                logger.error("Failed to update students")
-                continue
-
-            # Check if the stop event is set before proceeding:
-            if stop_event.is_set():
-                break
-
-            # 3 ========================================================================
-            # Read and process ticket records (from bilhetes file into database):
-            logger.debug(f"Reading bilhetes from {bilhetes_path}")
-
-            # TODO: Add a "processing" flag on queue to show a loading indicator in the GUI
-
-            # Attempt to ingest bilhetes:
-            ingest_bilhetes(bilhetes_path, stop_event, batch_size=25000)
-
-            # TODO: Add a "processed" flag on queue to show a success indicator in the GUI
-
-            # Check if the stop event is set after processing bilhetes:
-            if stop_event.is_set():
-                break
-
-            # 4 ========================================================================
-            # Filter out already synced access records:
-            logger.debug("Fetching not synced access records")
-
-            # Fetch access records that are not synced (from the database):
-            acessos = Acesso.get_unsynced()
-            logger.info(f"Found {len(acessos)} not synced access records")
-
-            if stop_event.is_set():
-                break
-
-            # 5 ========================================================================
-            # Filter out old records based on cutoff:
-            logger.debug("Filtering access records based on cutoff date")
-
-            cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
-            acessos = [a for a in acessos if a.date >= cutoff]
-            logger.info(f"Filtered {len(acessos)} acessos before cutoff date {cutoff}")
-
-            if stop_event.is_set():
-                break
-
-            # 6 ========================================================================
-            # Send bilhetes to API and update their synced status on the database:
-
-            # TODO: Add a "processing" flag on queue to show a loading indicator in the GUI
-
-            logger.debug("Posting access records to API and updating synced status")
-            results = asyncio.run(post_acessos_and_update_synced_status(acessos))
-
-            if results:
-                # Put the successfully processed access records into the queue:
-                queue.put([acesso.id for acesso in results])
-                logger.debug(f"Put {len(results)} access records into the queue")
-
-            # TODO: Add a "processed" flag on queue to show a success indicator in the GUI
         except Exception as e:
-            logger.warning(f"Error na execução da tarefa: {e}")
+            logger.warning(f"Error in file reader task: {e}")
             logger.exception(e)
         finally:
             wait_for_interval(stop_event)
 
 
-def task_update_checker(stop_event):
+# Task 2: Process queued events into database
+def task_db_processor(stop_event, queue):
     """
-    Check for updates and apply them.
+    Takes raw events from the queue and processes them into the database.
+    This task handles all database insertion operations.
     """
-
+    logger.info("Starting database processor task")
     while not stop_event.is_set():
         try:
-            # Fetch the latest release information from the update URL:
-            response = httpx.get(UPDATE_URL)
+            # Check for queued events to process
+            try:
+                message_type, data = queue.get(timeout=1)  # Wait 1 second for new data
 
-            # Check if the response is successful:
-            if response.status_code != 200:
-                logger.warning(f"Failed to check for updates: {response.status_code}")
+                if message_type == "PROCESS_EVENTS":
+                    logger.debug(f"Processing {len(data)} events into database")
+                    processed_records = process_events_to_database(data, stop_event)
+                    if processed_records:
+                        logger.info(
+                            f"Successfully processed {len(processed_records)} records into database"
+                        )
+
+            except Empty:
+                # No new data, continue loop
                 continue
 
-            # Parse the JSON response:
-            json_data = response.json()
-            if len(json_data) == 0:
-                logger.warning("Empty response from update URL")
-                continue
-
-            # Extract the latest release information:
-            latest_version = version.parse(json_data["tag_name"])
-
-            # Get the current version from the settings:
-            current_version = version.parse(get_current_version())
-
-            if latest_version > current_version:
-                # TODO: Differentiate between Windows/Linux/MacOS versions
-                logger.warning("Versão instalada não é a mais recente")
-                logger.warning(f"Versão mais recente: {latest_version}")
-                logger.warning(f"Versão atual: {current_version}")
-
-                # TODO: Alert the user about the new version (using the main GUI thread):
-                # Messagebox.show_info(
-                #     title="Atualização", message="Uma nova versão está disponível."
-                # )
         except Exception as e:
-            logger.error(f"Error while checking for updates")
+            logger.warning(f"Error in database processor task: {e}")
             logger.exception(e)
         finally:
-            wait_until_next_hour(stop_event)
+            # Short pause to prevent busy waiting
+            if not stop_event.is_set():
+                stop_event.wait(0.1)
+
+
+# Task 3: Sync unsynced DB records to API
+def task_db_sync(stop_event, queue):
+    """
+    Fetches unsynced transactions from the DB and pushes them to the API.
+    This task only handles API synchronization.
+    """
+    logger.info("Starting DB sync task")
+    while not stop_event.is_set():
+        try:
+            # Optionally, fetch and sync students if needed
+            logger.debug("Fetching and syncing students")
+            fetch_and_sync_students()
+
+            logger.debug("Fetching not synced access records")
+            acessos = Acesso.get_unsynced()
+            logger.info(f"Found {len(acessos)} not synced access records")
+
+            if acessos:
+                cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
+                acessos = [a for a in acessos if a.date >= cutoff]
+                logger.info(
+                    f"Filtered {len(acessos)} acessos before cutoff date {cutoff}"
+                )
+
+                if acessos:
+                    logger.debug(
+                        "Posting access records to API and updating synced status"
+                    )
+                    results = asyncio.run(
+                        post_acessos_and_update_synced_status(acessos)
+                    )
+
+                    if results:
+                        queue.put(("SYNC_COMPLETED", [acesso.id for acesso in results]))
+                        logger.debug(
+                            f"Put {len(results)} synced access records into the queue"
+                        )
+
+        except Exception as e:
+            logger.warning(f"Error in DB sync task: {e}")
+            logger.exception(e)
+        finally:
+            wait_for_interval(stop_event)

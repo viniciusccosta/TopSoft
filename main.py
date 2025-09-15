@@ -9,7 +9,7 @@ from pystray import Icon, Menu, MenuItem
 from topsoft.config import configure_logger
 from topsoft.database import configure_database
 from topsoft.frames import AcessosFrame, CartoesAcessoFrame, ConfigurationFrame
-from topsoft.tasks import task_processamento
+from topsoft.tasks import task_db_processor, task_db_sync, task_file_reader
 from topsoft.utils import get_path
 
 logger = logging.getLogger(__name__)
@@ -47,9 +47,11 @@ class App(ttk.Window):
 
         # Processamento:
         self.processing_queue = None
-        self.processing_thread = None
+        self.file_reader_thread = None
+        self.db_processor_thread = None
+        self.db_sync_thread = None
         self.processing_stop_event = threading.Event()
-        self.start_processing_thread()
+        self.start_processing_threads()
 
         # System Tray:
         self.tray_icon = None
@@ -71,25 +73,45 @@ class App(ttk.Window):
 
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
 
-    def start_processing_thread(self):
+    def start_processing_threads(self):
         """
-        Start the background task in a separate thread.
+        Start the file reader, database processor, and API sync tasks in separate threads.
         """
 
-        # Stop the previous thread if it's running
-        if self.processing_thread and self.processing_thread.is_alive():
+        # Stop the previous threads if they're running
+        if self.file_reader_thread and self.file_reader_thread.is_alive():
             self.processing_stop_event.set()
-            self.processing_thread.join()
+            self.file_reader_thread.join()
+        if self.db_processor_thread and self.db_processor_thread.is_alive():
+            self.processing_stop_event.set()
+            self.db_processor_thread.join()
+        if self.db_sync_thread and self.db_sync_thread.is_alive():
+            self.processing_stop_event.set()
+            self.db_sync_thread.join()
 
-        # Start a new thread
+        # Start new threads
         self.processing_queue = Queue()
         self.processing_stop_event.clear()
-        self.processing_thread = threading.Thread(
-            target=task_processamento,
+
+        self.file_reader_thread = threading.Thread(
+            target=task_file_reader,
             args=(self.processing_stop_event, self.processing_queue),
             daemon=True,
         )
-        self.processing_thread.start()
+        self.db_processor_thread = threading.Thread(
+            target=task_db_processor,
+            args=(self.processing_stop_event, self.processing_queue),
+            daemon=True,
+        )
+        self.db_sync_thread = threading.Thread(
+            target=task_db_sync,
+            args=(self.processing_stop_event, self.processing_queue),
+            daemon=True,
+        )
+
+        self.file_reader_thread.start()
+        self.db_processor_thread.start()
+        self.db_sync_thread.start()
 
         # Watch the queue for new items
         self.after(100, self.watch_queue)
@@ -102,12 +124,24 @@ class App(ttk.Window):
 
         # Read from the queue without blocking
         try:
-            acessos_ids = self.processing_queue.get_nowait()
+            message = self.processing_queue.get_nowait()
 
-            # TODO: Fire an event instead of directly calling the frame method...
-            if not acessos_ids:
-                logger.debug(f"Received {len(acessos_ids)} access IDs from the queue")
-                self.frames["Acessos"].update_sync_status(acessos_ids)
+            # Handle different message types
+            if isinstance(message, tuple) and len(message) == 2:
+                message_type, data = message
+
+                if message_type == "SYNC_COMPLETED":
+                    # Handle synced access records
+                    logger.debug(
+                        f"Received {len(data)} synced access IDs from the queue"
+                    )
+                    self.frames["Acessos"].update_sync_status(data)
+
+            # Legacy support for old format (direct list of IDs)
+            elif isinstance(message, list):
+                logger.debug(f"Received {len(message)} access IDs from the queue")
+                self.frames["Acessos"].update_sync_status(message)
+
         except Empty:
             pass
         finally:
@@ -132,10 +166,16 @@ class App(ttk.Window):
         Handle the exit event.
         """
 
-        # Stop the processing thread
-        if self.processing_thread and self.processing_thread.is_alive():
+        # Stop all processing threads
+        if self.file_reader_thread and self.file_reader_thread.is_alive():
             self.processing_stop_event.set()
-            self.processing_thread.join()
+            self.file_reader_thread.join()
+        if self.db_processor_thread and self.db_processor_thread.is_alive():
+            self.processing_stop_event.set()
+            self.db_processor_thread.join()
+        if self.db_sync_thread and self.db_sync_thread.is_alive():
+            self.processing_stop_event.set()
+            self.db_sync_thread.join()
 
         # Stop the Tray Icon thread
         if self.tray_icon:

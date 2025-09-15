@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 from datetime import datetime, timedelta
 from os import path
@@ -266,3 +265,97 @@ async def post_acessos_and_update_synced_status(acessos):
         logger.error(f"Error in post_acessos_and_update_synced_status: {e}")
         logger.exception(e)
         raise
+
+
+def read_bilhetes_fast(filepath, stop_event):
+    """
+    Fast file reader that only reads new lines and returns raw events without DB operations.
+    This function is optimized for speed and minimal file locking.
+    """
+    logger.debug(f"Fast reading bilhetes from file: {filepath}")
+
+    events = []
+    try:
+        # Read the file using Pygtail for incremental reading
+        reader = Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
+
+        for raw_line in reader:
+            # Check stop event frequently for responsiveness
+            if stop_event.is_set():
+                logger.info("Stopping fast file reading")
+                break
+
+            # Skip empty lines or malformed lines
+            parts = raw_line.strip().split()
+            if len(parts) < 5:
+                logger.warning(f"Skipping malformed line: {raw_line!r}")
+                continue
+
+            # Parse and validate timestamp quickly
+            try:
+                datetime.strptime(f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M")
+            except ValueError:
+                logger.warning(f"Invalid timestamp in line: {raw_line!r}")
+                continue
+
+            # Create raw event (no database operations)
+            event = {
+                "marcacao": parts[0],
+                "date": parts[1],
+                "time": parts[2],
+                "cartao": parts[3],
+                "catraca": parts[4],
+            }
+            events.append(event)
+
+    except Exception as e:
+        logger.error(f"Error during fast file reading: {e}")
+        raise
+
+    logger.debug(f"Fast read completed, found {len(events)} new events")
+    return events
+
+
+def process_events_to_database(events, stop_event, batch_size=1000):
+    """
+    Process raw events into the database with batch processing.
+    This function handles all database operations.
+    """
+    logger.info(f"Processing {len(events)} events into database")
+
+    if not events:
+        return []
+
+    all_records = []
+
+    # Process events in batches for efficiency
+    for i in range(0, len(events), batch_size):
+        if stop_event.is_set():
+            logger.info("Stopping database processing")
+            break
+
+        batch = events[i : i + batch_size]
+        logger.debug(f"Processing batch {i//batch_size + 1}: {len(batch)} events")
+
+        try:
+            # Use existing bulk processing function
+            batch_records = bulk_process_turnstile_events(batch)
+            all_records.extend(batch_records)
+
+        except Exception as e:
+            logger.error(f"Error processing batch: {e}")
+            # Try individual processing as fallback
+            for event in batch:
+                try:
+                    if stop_event.is_set():
+                        break
+                    record = process_turnstile_event(event)
+                    if record:
+                        all_records.append(record)
+                except Exception as event_error:
+                    logger.warning(
+                        f"Error processing individual event: {event}, error: {event_error}"
+                    )
+
+    logger.info(f"Successfully processed {len(all_records)} records into database")
+    return all_records
