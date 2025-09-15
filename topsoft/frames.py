@@ -600,10 +600,235 @@ class ConfigurationFrame(Frame):
         set_cutoff(cutoff)
 
         # Update the settings in the controller
-        self.controller.start_processing_thread()
+        self.controller.start_processing_threads()
 
         # Show a success message
         Messagebox().show_info(
             title="Configurações Salvas",
             message="As configurações foram salvas com sucesso!",
         )
+
+
+class TaskMonitorFrame(Frame):
+    """
+    A frame for monitoring the status of background tasks with progress bars and status indicators.
+    """
+
+    def __init__(self, parent, controller, *args, **kwargs):
+        """
+        Initializes the TaskMonitorFrame instance.
+        """
+        super().__init__(parent, *args, **kwargs)
+        self.parent = parent
+        self.controller = controller
+
+        # Main container
+        main_frame = ttk.Frame(self)
+        main_frame.pack(expand=True, fill="both", padx=20, pady=20)
+
+        # Title
+        title_label = ttk.Label(
+            main_frame, text="Monitor de Tarefas", font=("Arial", 16, "bold")
+        )
+        title_label.pack(pady=(0, 20))
+
+        # Task monitoring containers
+        self.task_frames = {}
+        self.progress_bars = {}
+        self.status_labels = {}
+        self.time_labels = {}
+        self.detail_labels = {}
+
+        # Create monitoring widgets for each task
+        tasks = [
+            (
+                "file_reader",
+                "📄 Leitor de Arquivo",
+                "Lê novos dados do arquivo bilhetes.txt",
+            ),
+            (
+                "db_processor",
+                "🗄️ Processador de Banco",
+                "Processa eventos na base de dados",
+            ),
+            (
+                "db_sync",
+                "🔄 Sincronização API",
+                "Sincroniza registros com ActivitySoft",
+            ),
+        ]
+
+        for task_id, task_name, task_description in tasks:
+            self._create_task_monitor(main_frame, task_id, task_name, task_description)
+
+        # Refresh button
+        refresh_frame = ttk.Frame(main_frame)
+        refresh_frame.pack(fill="x", pady=(20, 0))
+
+        refresh_btn = ttk.Button(
+            refresh_frame,
+            text="🔄 Atualizar Status",
+            command=self.refresh_status,
+            bootstyle="info",
+        )
+        refresh_btn.pack(anchor="center")
+
+        # Start status updates
+        self.update_task_status()
+
+    def _create_task_monitor(self, parent, task_id, task_name, task_description):
+        """Create monitoring widgets for a single task."""
+
+        # Task container
+        task_frame = ttk.LabelFrame(parent, text=task_name, padding=15)
+        task_frame.pack(fill="x", pady=10)
+        self.task_frames[task_id] = task_frame
+
+        # Description
+        desc_label = ttk.Label(
+            task_frame, text=task_description, font=("Arial", 9), foreground="gray"
+        )
+        desc_label.pack(anchor="w", pady=(0, 10))
+
+        # Status and time row
+        status_time_frame = ttk.Frame(task_frame)
+        status_time_frame.pack(fill="x", pady=(0, 10))
+
+        # Status label
+        status_label = ttk.Label(
+            status_time_frame, text="⏳ Iniciando...", font=("Arial", 10, "bold")
+        )
+        status_label.pack(side="left")
+        self.status_labels[task_id] = status_label
+
+        # Time label
+        time_label = ttk.Label(
+            status_time_frame,
+            text="Iniciado: --:--:--",
+            font=("Arial", 9),
+            foreground="gray",
+        )
+        time_label.pack(side="right")
+        self.time_labels[task_id] = time_label
+
+        # Progress bar
+        progress_bar = ttk.Progressbar(
+            task_frame, mode="indeterminate", bootstyle="info", length=400
+        )
+        progress_bar.pack(fill="x", pady=(0, 10))
+        self.progress_bars[task_id] = progress_bar
+
+        # Detail label
+        detail_label = ttk.Label(
+            task_frame,
+            text="Aguardando início da tarefa...",
+            font=("Arial", 8),
+            foreground="gray",
+        )
+        detail_label.pack(anchor="w")
+        self.detail_labels[task_id] = detail_label
+
+    def update_task_status(self):
+        """Update the status of all tasks."""
+        try:
+            # Get task status from controller
+            if hasattr(self.controller, "get_task_status"):
+                task_statuses = self.controller.get_task_status()
+
+                for task_id, status in task_statuses.items():
+                    self._update_single_task(task_id, status)
+            else:
+                # Fallback: check if threads are alive
+                self._update_fallback_status()
+
+        except Exception as e:
+            logger.error(f"Error updating task status: {e}")
+
+        # Schedule next update
+        self.after(1000, self.update_task_status)
+
+    def _update_single_task(self, task_id, status):
+        """Update a single task's visual status."""
+        if task_id not in self.progress_bars:
+            return
+
+        progress_bar = self.progress_bars[task_id]
+        status_label = self.status_labels[task_id]
+        time_label = self.time_labels[task_id]
+        detail_label = self.detail_labels[task_id]
+
+        # Update based on status
+        if status["state"] == "running":
+            status_label.config(text="🟢 Executando", foreground="green")
+            progress_bar.config(mode="indeterminate", bootstyle="success")
+            progress_bar.start()
+
+        elif status["state"] == "success":
+            status_label.config(text="✅ Concluído", foreground="green")
+            progress_bar.config(mode="determinate", bootstyle="success")
+            progress_bar.config(value=100)
+            progress_bar.stop()
+
+        elif status["state"] == "error":
+            status_label.config(text="❌ Erro", foreground="red")
+            progress_bar.config(mode="determinate", bootstyle="danger")
+            progress_bar.config(value=0)
+            progress_bar.stop()
+
+        elif status["state"] == "waiting":
+            status_label.config(text="⏳ Aguardando", foreground="orange")
+            progress_bar.config(mode="indeterminate", bootstyle="warning")
+            progress_bar.start()
+
+        else:  # stopped or unknown
+            status_label.config(text="⏹️ Parado", foreground="gray")
+            progress_bar.config(mode="determinate", bootstyle="secondary")
+            progress_bar.config(value=0)
+            progress_bar.stop()
+
+        # Update time and details
+        if "start_time" in status and status["start_time"]:
+            time_label.config(
+                text=f"Iniciado: {status['start_time'].strftime('%H:%M:%S')}"
+            )
+
+        if "details" in status:
+            detail_label.config(text=status["details"])
+
+    def _update_fallback_status(self):
+        """Fallback status update when detailed status is not available."""
+        thread_mapping = {
+            "file_reader": "file_reader_thread",
+            "db_processor": "db_processor_thread",
+            "db_sync": "db_sync_thread",
+        }
+
+        for task_id, thread_attr in thread_mapping.items():
+            if hasattr(self.controller, thread_attr):
+                thread = getattr(self.controller, thread_attr)
+                if thread and thread.is_alive():
+                    status = {
+                        "state": "running",
+                        "start_time": datetime.now(),
+                        "details": "Tarefa em execução...",
+                    }
+                else:
+                    status = {
+                        "state": "stopped",
+                        "start_time": None,
+                        "details": "Tarefa parada",
+                    }
+                self._update_single_task(task_id, status)
+
+    def refresh_status(self):
+        """Manually refresh the status of all tasks."""
+        self.update_task_status()
+
+    def set_task_status(self, task_id, state, details="", start_time=None):
+        """External method to set task status from the controller."""
+        status = {
+            "state": state,
+            "start_time": start_time or datetime.now(),
+            "details": details,
+        }
+        self._update_single_task(task_id, status)
