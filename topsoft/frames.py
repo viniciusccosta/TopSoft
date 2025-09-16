@@ -29,6 +29,444 @@ from topsoft.tasks import TaskState
 logger = logging.getLogger(__name__)
 
 
+class StudentSelectionDialog:
+    """
+    Enhanced dialog for selecting a student with search functionality and table view.
+    """
+
+    def __init__(self, parent, cartao_numeracao, current_aluno_info, callback):
+        self.parent = parent
+        self.cartao_numeracao = cartao_numeracao
+        self.current_aluno_info = current_aluno_info
+        self.callback = callback
+        self.selected_aluno = None
+        self.all_alunos = []
+        self.filtered_alunos = []
+        self.search_after_id = None  # For debouncing search
+
+        self._create_dialog()
+        self._load_students()
+
+    def _create_dialog(self):
+        """Create the dialog window and widgets."""
+        self.dialog = ttk.Toplevel(self.parent)
+        self.dialog.title("Selecionar Aluno para Vinculação")
+        self.dialog.geometry("700x900")
+        self.dialog.transient(self.parent)
+        self.dialog.grab_set()  # Make it modal
+
+        # # Center the dialog
+        # self.dialog.update_idletasks()
+        # x = (self.dialog.winfo_screenwidth() // 2) - (700 // 2)
+        # y = (self.dialog.winfo_screenheight() // 2) - (900 // 2)
+        # self.dialog.geometry(f"700x900+{x}+{y}")
+
+        # Main container
+        main_frame = ttk.Frame(self.dialog)
+        main_frame.pack(expand=True, fill="both", padx=20, pady=20)
+
+        # Header
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            header_frame,
+            text=f"Cartão de Acesso: {self.cartao_numeracao}",
+            font=("Arial", 12, "bold"),
+        ).pack(anchor="w")
+
+        ttk.Label(
+            header_frame,
+            text=f"Vinculação atual: {self.current_aluno_info}",
+            font=("Arial", 10),
+            foreground="gray",
+        ).pack(anchor="w")
+
+        # Instructions
+        instructions_frame = ttk.Frame(header_frame)
+        instructions_frame.pack(fill="x", pady=(10, 0))
+
+        ttk.Label(
+            instructions_frame, text="📋 Instruções:", font=("Arial", 9, "bold")
+        ).pack(anchor="w")
+
+        ttk.Label(
+            instructions_frame,
+            text="• Para vincular: busque e selecione um aluno abaixo",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w", padx=(10, 0))
+
+        ttk.Label(
+            instructions_frame,
+            text="• Para remover: clique em 'Remover Vinculação'",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w", padx=(10, 0))
+
+        # Search frame
+        search_frame = ttk.LabelFrame(main_frame, text="Buscar Aluno", padding=10)
+        search_frame.pack(fill="x", pady=(0, 10))
+
+        # Search entry
+        search_entry_frame = ttk.Frame(search_frame)
+        search_entry_frame.pack(fill="x")
+
+        ttk.Label(search_entry_frame, text="Buscar por nome ou matrícula:").pack(
+            anchor="w"
+        )
+
+        # Tips label
+        ttk.Label(
+            search_entry_frame,
+            text="💡 Dica: Digite algumas letras do nome ou a matrícula completa",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w")
+
+        self.search_var = ttk.StringVar()
+        self.search_var.trace("w", self._on_search_changed)
+
+        # Search entry with better styling
+        search_input_frame = ttk.Frame(search_entry_frame)
+        search_input_frame.pack(fill="x", pady=(5, 0))
+
+        self.search_entry = ttk.Entry(
+            search_input_frame,
+            textvariable=self.search_var,
+            font=("Arial", 11),
+            bootstyle="info",
+        )
+        self.search_entry.pack(side="left", fill="x", expand=True)
+        self.search_entry.focus()  # Focus on search entry
+
+        # Search info label
+        search_info = ttk.Label(search_input_frame, text=" 🔍", font=("Arial", 12))
+        search_info.pack(side="right", padx=(5, 0))
+
+        # Clear search button
+        clear_frame = ttk.Frame(search_frame)
+        clear_frame.pack(fill="x", pady=(5, 0))
+
+        ttk.Button(
+            clear_frame,
+            text="🔍 Limpar Busca",
+            command=self._clear_search,
+            bootstyle="outline",
+        ).pack(side="left")
+
+        self.results_label = ttk.Label(
+            clear_frame, text="", font=("Arial", 9), foreground="gray"
+        )
+        self.results_label.pack(side="right")
+
+        # Table frame
+        table_frame = ttk.LabelFrame(main_frame, text="Alunos Encontrados", padding=10)
+        table_frame.pack(expand=True, fill="both", pady=(0, 10))
+
+        # Create table
+        columns = [
+            {"text": "Matrícula", "stretch": False, "width": 100},
+            {"text": "Nome", "stretch": True},
+            {"text": "Curso", "stretch": False, "width": 150},
+        ]
+
+        self.table = Tableview(
+            table_frame,
+            coldata=columns,
+            paginated=True,
+            pagesize=15,
+            searchable=False,  # We'll handle search ourselves
+            autofit=True,
+            autoalign=False,
+            height=12,
+        )
+        self.table.pack(expand=True, fill="both")
+
+        # Bind double-click to select
+        self.table.view.bind("<Double-1>", self._on_table_double_click)
+        self.table.view.bind("<Return>", self._on_table_enter)
+
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x", pady=(10, 0))
+
+        # Buttons
+        ttk.Button(
+            button_frame, text="Cancelar", command=self._cancel, bootstyle="secondary"
+        ).pack(side="left")
+
+        # Make remove binding more prominent if there's a current binding
+        remove_text = "🗑️ Remover Vinculação"
+        if "Não vinculado" not in self.current_aluno_info:
+            remove_bootstyle = "warning"
+        else:
+            remove_text = "Remover Vinculação (Já removido)"
+            remove_bootstyle = "secondary"
+
+        ttk.Button(
+            button_frame,
+            text=remove_text,
+            command=self._remove_binding,
+            bootstyle=remove_bootstyle,
+        ).pack(side="left", padx=(10, 0))
+
+        ttk.Button(
+            button_frame,
+            text="✅ Selecionar Aluno",
+            command=self._select_student,
+            bootstyle="success",
+        ).pack(side="right")
+
+        # Keyboard shortcuts
+        self.dialog.bind("<Escape>", lambda e: self._cancel())
+        self.dialog.bind("<Control-f>", lambda e: self.search_entry.focus())
+
+    def _load_students(self):
+        """Load all students in a background thread."""
+        threading.Thread(target=self._load_students_thread, daemon=True).start()
+
+    def _load_students_thread(self):
+        """Background thread to load students."""
+        try:
+            # Load all students
+            self.all_alunos = Aluno.get_all(sort_by="nome")
+
+            # Update UI in main thread
+            self.dialog.after(0, self._populate_table)
+
+        except Exception as e:
+            logger.error(f"Error loading students: {e}")
+            self.dialog.after(
+                0, lambda: self._show_error(f"Erro ao carregar alunos: {e}")
+            )
+
+    def _populate_table(self, students=None):
+        """Populate the table with students."""
+        if students is None:
+            students = self.all_alunos
+
+        self.filtered_alunos = students
+
+        # Store current focus before clearing table
+        focused_widget = self.dialog.focus_get()
+
+        # Clear existing data
+        self.table.delete_rows(indices=None, iids=None)
+
+        # Add students to table
+        for aluno in students:
+            curso = getattr(aluno, "curso", "N/A") or "N/A"
+            self.table.insert_row("end", (aluno.matricula, aluno.nome, curso))
+
+        # Load table data
+        self.table.load_table_data(clear_filters=True)
+
+        # Restore focus to the search entry if it was focused before
+        if focused_widget == self.search_entry:
+            self.dialog.after_idle(lambda: self.search_entry.focus())
+
+        # Update results label
+        total_count = len(self.all_alunos)
+        filtered_count = len(students)
+
+        if total_count == filtered_count:
+            self.results_label.config(text=f"{total_count} alunos")
+        else:
+            self.results_label.config(text=f"{filtered_count} de {total_count} alunos")
+
+    def _on_search_changed(self, *args):
+        """Handle search text changes with debouncing."""
+        # Cancel previous search if it exists
+        if self.search_after_id:
+            self.dialog.after_cancel(self.search_after_id)
+
+        # Schedule new search after a short delay (debouncing)
+        self.search_after_id = self.dialog.after(300, self._perform_search)
+
+    def _perform_search(self):
+        """Actually perform the search."""
+        search_text = self.search_var.get().lower().strip()
+
+        if not search_text:
+            # Show all students
+            self._populate_table()
+            return
+
+        # Filter students by name or matricula
+        filtered = []
+        for aluno in self.all_alunos:
+            name_match = search_text in aluno.nome.lower()
+            matricula_match = search_text in str(aluno.matricula).lower()
+
+            # Also check if search starts with any word in the name (for better matching)
+            name_words = aluno.nome.lower().split()
+            word_start_match = any(word.startswith(search_text) for word in name_words)
+
+            if name_match or matricula_match or word_start_match:
+                filtered.append(aluno)
+
+        # Sort by relevance: exact matches first, then starts-with matches, then contains
+        def sort_key(aluno):
+            name_lower = aluno.nome.lower()
+            matricula_str = str(aluno.matricula).lower()
+
+            # Exact name match gets highest priority
+            if name_lower == search_text:
+                return (0, aluno.nome)
+            # Exact matricula match
+            elif matricula_str == search_text:
+                return (1, aluno.nome)
+            # Name starts with search
+            elif name_lower.startswith(search_text):
+                return (2, aluno.nome)
+            # Any word in name starts with search
+            elif any(word.startswith(search_text) for word in name_lower.split()):
+                return (3, aluno.nome)
+            # Name contains search
+            elif search_text in name_lower:
+                return (4, aluno.nome)
+            # Matricula contains search
+            else:
+                return (5, aluno.nome)
+
+        filtered.sort(key=sort_key)
+        self._populate_table(filtered)
+
+    def _clear_search(self):
+        """Clear the search field."""
+        self.search_var.set("")
+        self.search_entry.focus()
+
+    def _on_table_double_click(self, event):
+        """Handle double-click on table row."""
+        self._select_student()
+
+    def _on_table_enter(self, event):
+        """Handle Enter key on table."""
+        self._select_student()
+
+    def _get_selected_student(self):
+        """Get the currently selected student from the table."""
+        selected_rows = self.table.get_rows(selected=True)
+        if not selected_rows:
+            return None
+
+        # Get matricula from the first column
+        matricula = selected_rows[0].values[0]
+
+        # Find the student object
+        for aluno in self.filtered_alunos:
+            if aluno.matricula == matricula:
+                return aluno
+
+        return None
+
+    def _select_student(self):
+        """Select the highlighted student and bind to card."""
+        selected_aluno = self._get_selected_student()
+
+        if not selected_aluno:
+            Messagebox.show_warning(
+                "Por favor, selecione um aluno da lista.", "Nenhum Aluno Selecionado"
+            )
+            return
+
+        # Confirm the selection
+        result = Messagebox.show_question(
+            f"Vincular o cartão {self.cartao_numeracao} ao aluno:\n\n"
+            f"Nome: {selected_aluno.nome}\n"
+            f"Matrícula: {selected_aluno.matricula}\n\n"
+            f"Confirma a vinculação?",
+            "Confirmar Vinculação",
+        )
+
+        if result == "Yes":
+            try:
+                # Perform the binding
+                if bind_matricula_to_cartao_acesso(
+                    self.cartao_numeracao, selected_aluno.matricula
+                ):
+                    Messagebox.show_info(
+                        f"Cartão {self.cartao_numeracao} vinculado com sucesso ao aluno {selected_aluno.nome}!",
+                        "Vinculação Realizada",
+                    )
+
+                    # Refresh parent table and close dialog
+                    if self.callback:
+                        self.callback()
+                    self._close_dialog()
+                else:
+                    Messagebox.show_error(
+                        "Falha ao realizar a vinculação. Verifique os logs para mais detalhes.",
+                        "Erro na Vinculação",
+                    )
+            except Exception as e:
+                logger.error(f"Error binding card to student: {e}")
+                Messagebox.show_error(
+                    f"Erro ao vincular cartão: {e}", "Erro na Vinculação"
+                )
+
+    def _remove_binding(self):
+        """
+        Remove the current binding between the card and student.
+
+        This will set the card's aluno_id to None, effectively "unbinding" it.
+        The card will then show as "Não vinculado" in the main table.
+        """
+        # Check if there's actually a binding to remove
+        if "Não vinculado" in self.current_aluno_info:
+            Messagebox.show_info(
+                f"O cartão {self.cartao_numeracao} já não possui vinculação.",
+                "Sem Vinculação",
+            )
+            return
+
+        result = Messagebox.show_question(
+            f"Remover a vinculação atual do cartão {self.cartao_numeracao}?\n\n"
+            f"Vinculação atual: {self.current_aluno_info}\n\n"
+            f"⚠️ O cartão ficará sem vinculação com qualquer aluno.",
+            "Confirmar Remoção",
+        )
+
+        if result == "Yes":
+            try:
+                # Remove binding by setting to None/empty
+                if bind_matricula_to_cartao_acesso(self.cartao_numeracao, None):
+                    Messagebox.show_info(
+                        f"Vinculação do cartão {self.cartao_numeracao} removida com sucesso!",
+                        "Vinculação Removida",
+                    )
+
+                    # Refresh parent table and close dialog
+                    if self.callback:
+                        self.callback()
+                    self._close_dialog()
+                else:
+                    Messagebox.show_error(
+                        "Falha ao remover a vinculação. Verifique os logs para mais detalhes.",
+                        "Erro na Remoção",
+                    )
+            except Exception as e:
+                logger.error(f"Error removing card binding: {e}")
+                Messagebox.show_error(
+                    f"Erro ao remover vinculação: {e}", "Erro na Remoção"
+                )
+
+    def _cancel(self):
+        """Cancel the dialog."""
+        self._close_dialog()
+
+    def _close_dialog(self):
+        """Close the dialog."""
+        self.dialog.grab_release()
+        self.dialog.destroy()
+
+    def _show_error(self, message):
+        """Show error message."""
+        Messagebox.show_error(message, "Erro")
+
+
 class CartoesAcessoFrame(Frame):
     """
     A class that represents a frame for managing CartaoAcesso and binding them to Aluno.
@@ -167,40 +605,7 @@ class CartoesAcessoFrame(Frame):
         """
         Opens a new window to edit the binding of a CartaoAcesso to an Aluno.
         """
-        edit_window = ttk.Toplevel(self)
-        edit_window.title("Editar Vinculação de Cartão")
-        edit_window.geometry("400x200")
-
-        # Display the current CartaoAcesso
-        ttk.Label(edit_window, text=f"Cartão de Acesso: {cartao_numeracao}").pack(
-            padx=10, pady=10
-        )
-
-        # Dropdown for selecting a new Aluno # TODO: Add a search filter
-        ttk.Label(edit_window, text="Vincular a Aluno:").pack(padx=10, pady=5)
-        aluno_var = ttk.StringVar()
-        aluno_dropdown = ttk.Combobox(edit_window, textvariable=aluno_var)
-        aluno_dropdown.pack(padx=10, pady=5)
-
-        # Fetch all Aluno records for the dropdown
-        alunos = Aluno.get_all(sort_by="nome")
-        aluno_dropdown["values"] = [
-            f"{aluno.nome} ({aluno.matricula})" for aluno in alunos
-        ]
-
-        # Save button
-        def save_binding():
-            selected_aluno = aluno_dropdown.get()
-            if selected_aluno:
-                aluno_matricula = selected_aluno.split("(")[-1].strip(")")
-
-                if bind_matricula_to_cartao_acesso(cartao_numeracao, aluno_matricula):
-                    self.populate_table()
-                    edit_window.destroy()
-
-        ttk.Button(edit_window, text="Salvar", command=save_binding).pack(
-            padx=10, pady=10
-        )
+        StudentSelectionDialog(self, cartao_numeracao, aluno_info, self.populate_table)
 
     def export_cartoes_acesso(self):
         """

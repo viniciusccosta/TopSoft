@@ -143,15 +143,21 @@ def bulk_process_turnstile_events(events: List[dict]) -> List[Acesso]:
 
 
 def bind_matricula_to_cartao_acesso_v2(
-    cartao_numeracao: str, aluno_matricula: str
+    cartao_numeracao: str, aluno_matricula: str = None
 ) -> bool:
-    """Bind a student to an access card using new model interface"""
+    """Bind a student to an access card using new model interface, or remove binding if aluno_matricula is None"""
     try:
         # Find the card
         cartao = CartaoAcesso.find_by_numeracao(cartao_numeracao)
         if not cartao:
             logger.error(f"Cartão {cartao_numeracao} not found")
             return False
+
+        if aluno_matricula is None:
+            # Remove binding
+            cartao.assign_to_aluno(None)
+            logger.info(f"Successfully removed binding for cartão {cartao_numeracao}")
+            return True
 
         # Find the student
         aluno = Aluno.find_by_matricula(aluno_matricula)
