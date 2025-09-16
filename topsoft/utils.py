@@ -156,6 +156,8 @@ def ingest_bilhetes(
 def wait_for_interval(stop_event, task_name="background task"):
     """
     Wait for the specified interval before the next processing cycle.
+    This function is designed to be interruptible - it will return immediately
+    when the stop_event is set, providing fast shutdown response.
 
     Parameters:
     - stop_event (threading.Event): An event to signal when to stop waiting.
@@ -167,18 +169,26 @@ def wait_for_interval(stop_event, task_name="background task"):
 
     intervalo = get_interval() * 60
 
-    for i in range(intervalo):
-        if stop_event.is_set():
-            logger.info(f"Stopping {task_name}")
-            return
+    logger.debug(
+        f"{task_name}: Waiting {intervalo} seconds until next processing cycle"
+    )
 
-        logger.debug(f"{task_name}: Next processing in {intervalo - i} seconds")
-        sleep(1)
+    # Use stop_event.wait() instead of sleep() for immediate interruption
+    # This will return True if the event was set, False if timeout occurred
+    if stop_event.wait(timeout=intervalo):
+        # Event was set - we're being asked to stop
+        logger.info(f"Stopping {task_name} (interrupted during wait)")
+        return
+
+    # Timeout occurred - normal end of wait period
+    logger.debug(f"{task_name}: Wait period completed, resuming processing")
 
 
 def wait_until_next_hour(stop_event):
     """
-    Wait for the specified interval.
+    Wait until the next hour.
+    This function is designed to be interruptible - it will return immediately
+    when the stop_event is set, providing fast shutdown response.
 
     Parameters:
     - stop_event (threading.Event): An event to signal when to stop waiting.
@@ -191,13 +201,16 @@ def wait_until_next_hour(stop_event):
     next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
     sleep_duration = int((next_hour - now).total_seconds())
 
-    for i in range(sleep_duration):
-        if stop_event.is_set():
-            logger.info("Stopping update task")
-            return
+    logger.debug(f"Waiting {sleep_duration} seconds until next hour")
 
-        logger.debug(f"Next update check in {sleep_duration - i} seconds")
-        sleep(1)
+    # Use stop_event.wait() instead of sleep() for immediate interruption
+    if stop_event.wait(timeout=sleep_duration):
+        # Event was set - we're being asked to stop
+        logger.info("Stopping update task (interrupted during wait)")
+        return
+
+    # Timeout occurred - we've reached the next hour
+    logger.debug("Wait until next hour completed")
 
 
 def fetch_and_sync_students():
