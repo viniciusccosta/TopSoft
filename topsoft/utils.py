@@ -337,7 +337,7 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
     """
     Fast file reader that only reads new lines and returns raw events without DB operations.
     This function is optimized for speed and minimal file locking.
-    Provides progress feedback for large initial reads.
+    Provides progress feedback for large initial reads and frequent cancellation checks.
 
     Args:
         filepath: Path to the bilhetes file
@@ -372,10 +372,11 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
         for raw_line in reader:
             line_count += 1
 
-            # Check stop event frequently for responsiveness
-            if stop_event.is_set():
-                logger.info(f"Stopping fast file reading at line {line_count}")
-                break
+            # Check stop event more frequently for better responsiveness
+            if line_count % 10 == 0:  # Check every 10 lines instead of every line
+                if stop_event.is_set():
+                    logger.info(f"Stopping fast file reading at line {line_count}")
+                    break
 
             # For large initial reads, provide progress feedback every chunk
             if is_initial_read and line_count % chunk_size == 0:
@@ -418,6 +419,11 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
         logger.error(f"Error during fast file reading at line {line_count}: {e}")
         raise
 
+    # Final cancellation check
+    if stop_event.is_set():
+        logger.info(f"File reading cancelled after processing {line_count} lines")
+        return events  # Return what we have so far
+
     if is_initial_read and line_count > 1000:
         logger.info(
             f"Initial read completed: processed {line_count} lines, found {len(events)} valid events"
@@ -430,8 +436,8 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
 
 def process_events_to_database(events, stop_event, batch_size=None):
     """
-    Process raw events into the database with batch processing.
-    This function handles all database operations.
+    Process raw events into the database with batch processing and frequent cancellation checks.
+    This function handles all database operations with improved responsiveness.
 
     Args:
         events: List of raw events to process
@@ -453,6 +459,7 @@ def process_events_to_database(events, stop_event, batch_size=None):
 
     # Process events in batches for efficiency
     for i in range(0, len(events), batch_size):
+        # Check cancellation before each batch
         if stop_event.is_set():
             logger.info("Stopping database processing")
             break
@@ -475,10 +482,13 @@ def process_events_to_database(events, stop_event, batch_size=None):
         except Exception as e:
             logger.error(f"Error processing batch {batch_number}: {e}")
             # Try individual processing as fallback
-            for event in batch:
+            for j, event in enumerate(batch):
                 try:
-                    if stop_event.is_set():
+                    # Check cancellation more frequently during fallback processing
+                    if j % 10 == 0 and stop_event.is_set():
+                        logger.info("Stopping individual event processing")
                         break
+
                     record = process_turnstile_event(event)
                     if record:
                         all_records.append(record)
@@ -486,6 +496,10 @@ def process_events_to_database(events, stop_event, batch_size=None):
                     logger.warning(
                         f"Error processing individual event: {event}, error: {event_error}"
                     )
+
+        # Small delay between batches to allow other operations
+        if not stop_event.is_set():
+            stop_event.wait(0.01)  # 10ms delay
 
     logger.info(f"Successfully processed {len(all_records)} records into database")
     return all_records

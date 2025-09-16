@@ -8,8 +8,10 @@ import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
+from topsoft.card_operations import ExportCartoesOperation, ImportCartoesOperation
 from topsoft.constants import DEFAULT_INTERVAL, MAX_INTERVAL, MIN_INTERVAL
 from topsoft.models import Acesso, Aluno, CartaoAcesso
+from topsoft.progress_dialog import show_progress_dialog
 from topsoft.repository import (
     bind_matricula_to_cartao_acesso_v2 as bind_matricula_to_cartao_acesso,
 )
@@ -192,47 +194,52 @@ class CartoesAcessoFrame(Frame):
 
     def export_cartoes_acesso(self):
         """
-        Exports the CartaoAcesso data to a file.
-        This function is called when the user clicks the export button.
+        Exports the CartaoAcesso data to a file using cancellable operation.
         """
-
-        # 1) Retrieve all CartaoAcesso directly from the database
-        cartoes = CartaoAcesso.get_all()
-
-        # 2) Format the data according to the expected output
-        formatted_data = []
-        for cartao in cartoes:
-            # Ensure the card number is 16 characters long, padded with zeros
-            card_number = str(cartao.numeracao).zfill(16)
-
-            # Ensure the name is left-aligned and up to 40 characters long
-            name = f"{cartao.aluno.nome if cartao.aluno else 'Não vinculado':<40}"
-
-            # Append the formatted string
-            formatted_data.append(f"{card_number}{name}00110")
-
-        # 3) Ask user for filename and path
+        # Ask user for filename and path
         filename = filedialog.asksaveasfilename(
             defaultextension=".txt",
             filetypes=[("Text files", "*.txt")],
             title="Salvar Cartões de Acesso",
         )
 
-        # 4) Write the formatted data to a file
-        if filename:
-            with open(filename, "w", encoding="utf-8") as file:
-                for line in formatted_data:
-                    file.write(line + "\n")
+        if not filename:
+            return
 
-        # 5) Show success message
-        Messagebox.show_info("Cartões de Acesso exportados com sucesso!", "Sucesso")
+        # Create and run export operation
+        operation = ExportCartoesOperation(filename)
+
+        def on_result(success, error):
+            if success:
+                Messagebox.show_info(
+                    "Cartões de Acesso exportados com sucesso!", "Sucesso"
+                )
+                logger.info(f"Cards exported successfully to {filename}")
+            else:
+                error_msg = (
+                    str(error) if error else "Erro desconhecido durante exportação"
+                )
+                Messagebox.show_error(f"Erro ao exportar cartões: {error_msg}", "Erro")
+                logger.error(f"Export failed: {error_msg}")
+
+        # Show progress dialog
+        success = show_progress_dialog(
+            parent=self,
+            operation=operation,
+            title="Exportando Cartões de Acesso",
+            allow_cancel=True,
+            auto_close=True,
+        )
+
+        if success:
+            on_result(True, None)
+        else:
+            on_result(False, None)
 
     def import_cartoes_acesso(self):
         """
-        Imports CartaoAcesso data from a file.
-        This function is called when the user clicks the import button.
+        Imports CartaoAcesso data from a file using cancellable operation.
         """
-
         # Ask user for file to import
         filepath = filedialog.askopenfilename(
             title="Importar Cartões de Acesso",
@@ -242,53 +249,65 @@ class CartoesAcessoFrame(Frame):
         if not filepath:
             return
 
-        # Lock GUI # TODO: self.controller.lock_gui()
-        # TODO: Progressbar
-        self.import_button.config(state="disabled")
-        self.export_button.config(state="disabled")
+        # Create and run import operation
+        operation = ImportCartoesOperation(filepath)
 
-        # Read the file and gather data
-        with open(filepath, "r", encoding="utf-8") as file:
-            for line in file:
-                line = line.strip()
+        def on_result(success, error):
+            if success:
+                # Refresh table to show new cards
+                self.populate_table()
 
-                if line and len(line) >= 56:  # Ensure line is long enough
-                    numero = line[0:16]
-                    nome = line[16 : 16 + 40].strip()
+                # Show success message with statistics
+                result = operation.execute() if hasattr(operation, "_result") else {}
+                imported = result.get("imported", 0)
+                skipped = result.get("skipped", 0)
+                errors = result.get("errors", 0)
 
-                    # Create a new CartaoAcesso instance
-                    cartao, created = CartaoAcesso.get_or_create(numeracao=numero)
+                message = f"Importação concluída!\n\n"
+                message += f"Cartões importados: {imported}\n"
+                message += f"Cartões existentes (ignorados): {skipped}\n"
+                if errors > 0:
+                    message += f"Erros encontrados: {errors}"
 
-                    # If the card already exists, skip to the next line
-                    if not created:
-                        logger.info(f"Cartão de Acesso {numero} já existe, pulando...")
-                        continue
+                Messagebox.show_info(message, "Importação Concluída")
+                logger.info(
+                    f"Cards imported: {imported}, skipped: {skipped}, errors: {errors}"
+                )
+            else:
+                # Refresh table anyway in case some cards were imported before error/cancellation
+                self.populate_table()
 
-                    # TODO: Uma possibilidade seria vincular um cartão, que ainda não foi vinculado, a um aluno existente
-                    # TODO: Outra possibilidade seria atualizar o cartão a cada importação
+                if error:
+                    error_msg = str(error)
+                    Messagebox.show_error(
+                        f"Erro durante importação: {error_msg}", "Erro"
+                    )
+                    logger.error(f"Import failed: {error_msg}")
+                else:
+                    # Operation was cancelled
+                    Messagebox.show_info(
+                        "Importação cancelada pelo usuário.", "Cancelado"
+                    )
+                    logger.info("Import cancelled by user")
 
-                    # Set the associated Aluno if the name is provided
-                    # TODO: Lidar com caso de nomes duplicados
-                    aluno = Aluno.find_by_name(nome)
+        # Show progress dialog
+        success = show_progress_dialog(
+            parent=self,
+            operation=operation,
+            title="Importando Cartões de Acesso",
+            allow_cancel=True,
+            auto_close=False,  # Don't auto-close so user can see results
+        )
 
-                    if aluno:
-                        cartao.aluno = aluno
-                        cartao.save()
-                        logger.info(
-                            f"Cartão de Acesso {numero} criado e vinculado a Aluno {nome}"
-                        )
-                    else:
-                        logger.info(f"Cartão de Acesso {numero} criado")
+        # Store result for callback access
+        if hasattr(operation, "imported_count"):
+            operation._result = {
+                "imported": operation.imported_count,
+                "skipped": operation.skipped_count,
+                "errors": operation.error_count,
+            }
 
-        # TODO: Bulk get/create/update CartaoAcesso and Aluno instead within a loop
-
-        # Success message
-        Messagebox.show_info("Cartões de Acesso importados com sucesso!", "Sucesso")
-
-        # Unlock GUI # TODO: self.controller.unlock_gui()
-        # TODO: Hide and stop Progressbar
-        self.import_button.config(state="normal")
-        self.export_button.config(state="normal")
+        on_result(success, None)
 
 
 class AcessosFrame(Frame):
@@ -944,4 +963,5 @@ class TaskMonitorFrame(Frame):
             "last_run_time": last_run_time or datetime.now(),
             "details": details,
         }
+        self._update_single_task(task_id, status)
         self._update_single_task(task_id, status)

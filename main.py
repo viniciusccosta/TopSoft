@@ -288,7 +288,6 @@ class App(ttk.Window):
         """
         Handle the window closing event.
         """
-
         self.withdraw()
 
     def show_window(self):
@@ -300,26 +299,50 @@ class App(ttk.Window):
 
     def exit_app(self):
         """
-        Handle the exit event.
+        Handle the exit event with proper cleanup.
         """
+        logger.info("Application exit requested")
 
         # Stop all processing threads
-        if self.file_reader_thread and self.file_reader_thread.is_alive():
-            self.processing_stop_event.set()
-            self.file_reader_thread.join()
-        if self.db_processor_thread and self.db_processor_thread.is_alive():
-            self.processing_stop_event.set()
-            self.db_processor_thread.join()
-        if self.db_sync_thread and self.db_sync_thread.is_alive():
-            self.processing_stop_event.set()
-            self.db_sync_thread.join()
+        self.processing_stop_event.set()
+
+        # Wait for threads to finish with timeout
+        threads_to_wait = [
+            ("file_reader", self.file_reader_thread),
+            ("db_processor", self.db_processor_thread),
+            ("db_sync", self.db_sync_thread),
+        ]
+
+        for thread_name, thread in threads_to_wait:
+            if thread and thread.is_alive():
+                logger.info(f"Waiting for {thread_name} thread to finish...")
+                thread.join(timeout=3.0)  # Wait up to 3 seconds per thread
+
+                if thread.is_alive():
+                    logger.warning(
+                        f"{thread_name} thread did not respond to stop signal in time"
+                    )
+                else:
+                    logger.info(f"{thread_name} thread stopped successfully")
 
         # Stop the Tray Icon thread
         if self.tray_icon:
-            self.tray_icon.stop()
+            try:
+                self.tray_icon.stop()
+                logger.info("Tray icon stopped")
+            except Exception as e:
+                logger.error(f"Error stopping tray icon: {e}")
 
         # Destroy the window
-        self.destroy()
+        try:
+            self.destroy()
+            logger.info("Application closed successfully")
+        except Exception as e:
+            logger.error(f"Error destroying main window: {e}")
+            # Force exit if normal cleanup fails
+            import sys
+
+            sys.exit(1)
 
     def run(self):
         self.mainloop()
