@@ -281,35 +281,68 @@ async def post_acessos_and_update_synced_status(acessos):
         raise
 
 
-def read_bilhetes_fast(filepath, stop_event):
+def read_bilhetes_fast(filepath, stop_event, chunk_size=10000):
     """
     Fast file reader that only reads new lines and returns raw events without DB operations.
     This function is optimized for speed and minimal file locking.
+    Provides progress feedback for large initial reads.
+
+    Args:
+        filepath: Path to the bilhetes file
+        stop_event: Event to signal stopping
+        chunk_size: Number of lines to process before yielding control (for memory efficiency)
     """
     logger.debug(f"Fast reading bilhetes from file: {filepath}")
 
     events = []
+    line_count = 0
+    processed_count = 0
+
     try:
         # Read the file using Pygtail for incremental reading
         reader = Pygtail(filepath, offset_file=OFFSET_PATH, paranoid=True)
 
+        # Check if this is likely an initial read by checking if offset file exists
+        import os
+
+        is_initial_read = not os.path.exists(OFFSET_PATH)
+        if is_initial_read:
+            logger.info(
+                f"Performing initial read of large file - processing in chunks of {chunk_size} lines"
+            )
+
         for raw_line in reader:
+            line_count += 1
+
             # Check stop event frequently for responsiveness
             if stop_event.is_set():
-                logger.info("Stopping fast file reading")
+                logger.info(f"Stopping fast file reading at line {line_count}")
                 break
+
+            # For large initial reads, provide progress feedback every chunk
+            if is_initial_read and line_count % chunk_size == 0:
+                logger.info(
+                    f"Processed {line_count} lines... (found {len(events)} valid events so far)"
+                )
 
             # Skip empty lines or malformed lines
             parts = raw_line.strip().split()
             if len(parts) < 5:
-                logger.warning(f"Skipping malformed line: {raw_line!r}")
+                if line_count <= 10:  # Only warn for first few lines to avoid spam
+                    logger.warning(
+                        f"Skipping malformed line {line_count}: {raw_line!r}"
+                    )
                 continue
 
-            # Parse and validate timestamp quickly
+            # Parse and validate timestamp quickly (minimal validation for speed)
             try:
+                # Quick validation - just check if it can be parsed
                 datetime.strptime(f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M")
             except ValueError:
-                logger.warning(f"Invalid timestamp in line: {raw_line!r}")
+                if processed_count <= 10:  # Only warn for first few invalid timestamps
+                    logger.warning(
+                        f"Invalid timestamp in line {line_count}: {raw_line!r}"
+                    )
                 continue
 
             # Create raw event (no database operations)
@@ -321,19 +354,27 @@ def read_bilhetes_fast(filepath, stop_event):
                 "catraca": parts[4],
             }
             events.append(event)
+            processed_count += 1
 
     except Exception as e:
-        logger.error(f"Error during fast file reading: {e}")
+        logger.error(f"Error during fast file reading at line {line_count}: {e}")
         raise
 
-    logger.debug(f"Fast read completed, found {len(events)} new events")
+    if is_initial_read and line_count > 1000:
+        logger.info(
+            f"Initial read completed: processed {line_count} lines, found {len(events)} valid events"
+        )
+    else:
+        logger.debug(f"Fast read completed, found {len(events)} new events")
+
     return events
 
 
-def process_events_to_database(events, stop_event, batch_size=1000):
+def process_events_to_database(events, stop_event, batch_size=5000):
     """
     Process raw events into the database with batch processing.
     This function handles all database operations.
+    Increased batch size from 1000 to 5000 for better performance with large files.
     """
     logger.info(f"Processing {len(events)} events into database")
 
@@ -349,15 +390,22 @@ def process_events_to_database(events, stop_event, batch_size=1000):
             break
 
         batch = events[i : i + batch_size]
-        logger.debug(f"Processing batch {i//batch_size + 1}: {len(batch)} events")
+        batch_number = i // batch_size + 1
+        total_batches = (len(events) + batch_size - 1) // batch_size
+        logger.info(
+            f"Processing batch {batch_number}/{total_batches}: {len(batch)} events"
+        )
 
         try:
             # Use existing bulk processing function
             batch_records = bulk_process_turnstile_events(batch)
             all_records.extend(batch_records)
+            logger.debug(
+                f"Batch {batch_number} completed successfully: {len(batch_records)} records processed"
+            )
 
         except Exception as e:
-            logger.error(f"Error processing batch: {e}")
+            logger.error(f"Error processing batch {batch_number}: {e}")
             # Try individual processing as fallback
             for event in batch:
                 try:
