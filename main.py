@@ -214,6 +214,13 @@ class App(ttk.Window):
         Update the status of a specific task.
         """
         if task_id in self.task_status:
+            # Update last_run_time when task completes successfully or with error
+            last_run_time = (
+                datetime.now()
+                if state in ["success", "error"]
+                else self.task_status[task_id].get("last_run_time")
+            )
+
             self.task_status[task_id].update(
                 {
                     "state": state,
@@ -221,6 +228,7 @@ class App(ttk.Window):
                     "start_time": self.task_status[task_id].get(
                         "start_time", datetime.now()
                     ),
+                    "last_run_time": last_run_time,
                 }
             )
 
@@ -228,7 +236,9 @@ class App(ttk.Window):
             if "Monitor de Tarefas" in self.frames:
                 monitor_frame = self.frames["Monitor de Tarefas"]
                 if hasattr(monitor_frame, "set_task_status"):
-                    monitor_frame.set_task_status(task_id, state, details)
+                    monitor_frame.set_task_status(
+                        task_id, state, details, last_run_time
+                    )
 
     def watch_queue(self):
         """
@@ -250,6 +260,13 @@ class App(ttk.Window):
                         f"Received {len(data)} synced access IDs from the queue"
                     )
                     self.frames["Acessos"].update_sync_status(data)
+
+                elif message_type == "DATA_PROCESSED":
+                    # Handle new data processed into database
+                    logger.debug(
+                        f"Received notification of {data} new records processed"
+                    )
+                    self.frames["Acessos"].handle_new_data_processed(data)
 
                 elif message_type == "TASK_STATUS":
                     # Handle task status updates

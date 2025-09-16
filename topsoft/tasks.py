@@ -125,6 +125,10 @@ def task_db_processor(stop_event, queue):
                         logger.info(
                             f"Successfully processed {len(processed_records)} records into database"
                         )
+
+                        # Notify GUI about new processed records
+                        queue.put(("DATA_PROCESSED", len(processed_records)))
+
                         queue.put(
                             (
                                 "TASK_STATUS",

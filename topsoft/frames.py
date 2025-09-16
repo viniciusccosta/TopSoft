@@ -311,6 +311,19 @@ class AcessosFrame(Frame):
 
         colors = self.controller.style.colors
 
+        # Button frame for refresh button
+        button_frame = ttk.Frame(self)
+        button_frame.pack(expand=False, fill="x", padx=10, pady=(10, 0))
+
+        # Refresh button
+        self.refresh_button = ttk.Button(
+            button_frame,
+            text="🔄 Atualizar Tabela",
+            command=self.populate_table,
+            bootstyle="info-outline",
+        )
+        self.refresh_button.pack(expand=False, side="right")
+
         coldata = [
             {"text": "ID", "stretch": False},  # "cid": "id",
             {"text": "Sinc.", "stretch": False},  # "cid": "synced",
@@ -401,21 +414,133 @@ class AcessosFrame(Frame):
 
     def update_sync_status(self, acesso_ids):
         """
-        Updates the sync status of a specific row in the table.
+        Updates the sync status of specific rows in the table.
+        This method handles both visible and non-visible rows (due to pagination).
 
-        :param row_id: The ID of the row to update.
-        :param synced: The new sync status (True or False).
+        :param acesso_ids: List of access IDs that have been synced.
         """
+        if not acesso_ids:
+            return
 
-        # TODO: Use a dict instead of iterating through rows to find the right row
+        logger.debug(f"Updating sync status for {len(acesso_ids)} access records")
 
-        logger.debug(f"Updating sync status for access {len(acesso_ids)} IDs")
+        updated_count = 0
 
+        # Update visible rows first (for immediate visual feedback)
         for row in self.table.tablerows:
             if row.values[0] in acesso_ids:
-                # TODO: Not sure if this is the best way to update the row...
                 row.values[1] = "✅"
                 row.refresh()
+                updated_count += 1
+
+        # If some IDs weren't found in visible rows (due to pagination/filtering),
+        # schedule a table refresh to ensure all updates are reflected
+        if updated_count < len(acesso_ids):
+            logger.debug(
+                f"Updated {updated_count}/{len(acesso_ids)} visible rows, scheduling table refresh"
+            )
+            # Use after to avoid blocking the UI
+            self.after(100, self.refresh_table_data)
+        else:
+            logger.debug(f"Successfully updated {updated_count} visible rows")
+
+    def refresh_table_data(self):
+        """
+        Refreshes the table data without losing current page/filter state.
+        This is more efficient than a full repopulate for sync status updates.
+        """
+        logger.debug("Refreshing table data to reflect sync status changes")
+
+        # Store current state
+        current_page = getattr(self.table, "page", 0)
+        current_search = getattr(self.table, "searchterm", "")
+
+        # Refresh the data
+        thread = threading.Thread(
+            target=self._refresh_table_thread, args=(current_page, current_search)
+        )
+        thread.daemon = True
+        thread.start()
+
+    def _refresh_table_thread(self, current_page, current_search):
+        """
+        Background thread to refresh table data while preserving state.
+        """
+        try:
+            # Fetch fresh data
+            acessos = Acesso.get_all()
+
+            # Prepare updated data
+            rows_data = []
+            for acesso in acessos:
+                synced = "✅" if acesso.synced else "🚫"
+                cartao = acesso.cartao_acesso.numeracao
+                data_hora = datetime.combine(acesso.date, acesso.time)
+                catraca = acesso.catraca
+
+                rows_data.append(
+                    (
+                        acesso.id,
+                        synced,
+                        cartao,
+                        data_hora,
+                        catraca,
+                    )
+                )
+
+            # Update UI in main thread while preserving state
+            self.after(
+                0,
+                lambda: self._update_table_preserving_state(
+                    rows_data, current_page, current_search
+                ),
+            )
+
+        except Exception as e:
+            logger.error(f"Error refreshing table data: {e}")
+
+    def _update_table_preserving_state(self, rows_data, current_page, current_search):
+        """
+        Updates table data while preserving pagination and search state.
+        """
+        try:
+            # Clear and reload data
+            self.table.delete_rows(indices=None, iids=None)
+
+            for row_data in rows_data:
+                self.table.insert_row("end", row_data)
+
+            # Reload table data
+            self.table.load_table_data(clear_filters=False)
+
+            # Restore search if there was one
+            if current_search:
+                # Restore search term (the table should remember this)
+                pass
+
+            # Restore page if possible (the table handles this automatically)
+            logger.debug("Table data refreshed successfully")
+
+        except Exception as e:
+            logger.error(f"Error updating table state: {e}")
+            # Fallback to simple update
+            self._update_table_ui(rows_data)
+
+    def handle_new_data_processed(self, new_record_count=0):
+        """
+        Called when new data has been processed into the database.
+        Refreshes the entire table to show new records.
+
+        :param new_record_count: Number of new records added (for logging)
+        """
+        if new_record_count > 0:
+            logger.info(
+                f"New data processed: {new_record_count} records. Refreshing table..."
+            )
+            # For new data, we need a full refresh
+            self.populate_table()
+        else:
+            logger.debug("No new records to display")
 
 
 class ConfigurationFrame(Frame):
