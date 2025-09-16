@@ -105,25 +105,30 @@ class CartoesAcessoFrame(Frame):
     def _populate_table(self):
         """
         Populates the table with CartaoAcesso and their associated Aluno.
+        This runs in a background thread and schedules UI updates on the main thread.
         """
-        # Clear existing data
-        self.table.delete_rows(indices=None, iids=None)
-        # TODO: Just update without clearing the table
+        try:
+            # Fetch all CartaoAcesso records with their associated Aluno in background thread
+            cartoes = CartaoAcesso.get_all()
 
-        # Fetch all CartaoAcesso records with their associated Aluno
-        cartoes = CartaoAcesso.get_all()
+            # Populate the table
+            row_datas = []
+            for i, cartao in enumerate(cartoes):
+                aluno_info = (
+                    f"{cartao.aluno.nome} ({cartao.aluno.matricula})"
+                    if cartao.aluno
+                    else "Não vinculado"
+                )
+                row_datas.append((cartao.numeracao, aluno_info))
 
-        # Populate the table
-        row_datas = []
-        for i, cartao in enumerate(cartoes):
-            aluno_info = (
-                f"{cartao.aluno.nome} ({cartao.aluno.matricula})"
-                if cartao.aluno
-                else "Não vinculado"
-            )
-            row_datas.append((cartao.numeracao, aluno_info))
+            # Schedule UI update on main thread
+            self.after(0, lambda: self._update_table_ui(row_datas))
 
-        self.after(0, lambda: self._update_table_ui(row_datas))
+        except Exception as e:
+            logger.error(f"Error fetching card data: {e}")
+            # Schedule error handling on main thread
+            error_message = str(e)
+            self.after(0, lambda: self._handle_table_error(error_message))
 
         # TODO: Hide loading indicator if used
 
@@ -140,6 +145,10 @@ class CartoesAcessoFrame(Frame):
 
         # Load the table data
         self.table.load_table_data(clear_filters=True)
+
+    def _handle_table_error(self, error_message):
+        """Handle table population errors on main thread."""
+        logger.error(f"Failed to populate cards table: {error_message}")
 
     def handle_row_double_click(self, event, *args, **kwargs):
         """
@@ -805,9 +814,6 @@ class TaskMonitorFrame(Frame):
         for task_id, task_name, task_description in tasks:
             self._create_task_monitor(main_frame, task_id, task_name, task_description)
 
-        # Start status updates
-        self.update_task_status()
-
     def _create_task_monitor(self, parent, task_id, task_name, task_description):
         """Create monitoring widgets for a single task."""
 
@@ -860,25 +866,6 @@ class TaskMonitorFrame(Frame):
         detail_label.pack(anchor="w")
         self.detail_labels[task_id] = detail_label
 
-    def update_task_status(self):
-        """Update the status of all tasks."""
-        try:
-            # Get task status from controller
-            if hasattr(self.controller, "get_task_status"):
-                task_statuses = self.controller.get_task_status()
-
-                for task_id, status in task_statuses.items():
-                    self._update_single_task(task_id, status)
-            else:
-                # Fallback: check if threads are alive
-                self._update_fallback_status()
-
-        except Exception as e:
-            logger.error(f"Error updating task status: {e}")
-
-        # Schedule next update
-        self.after(1000, self.update_task_status)
-
     def _update_single_task(self, task_id, status):
         """Update a single task's visual status."""
         if task_id not in self.progress_bars:
@@ -890,10 +877,21 @@ class TaskMonitorFrame(Frame):
         detail_label = self.detail_labels[task_id]
 
         # Update based on status
-        if status["state"] == "running":
+        if status["state"] == "start":
+            status_label.config(text="🚀 Iniciando", foreground="purple")
+            progress_bar.config(mode="indeterminate", bootstyle="info")
+            progress_bar.start()
+
+        elif status["state"] == "running":
             status_label.config(text="🟢 Executando", foreground="green")
             progress_bar.config(mode="indeterminate", bootstyle="success")
             progress_bar.start()
+
+        elif status["state"] == "waiting":
+            status_label.config(text="⏳ Aguardando", foreground="blue")
+            progress_bar.config(mode="determinate", bootstyle="info")
+            progress_bar.config(value=0)
+            progress_bar.stop()
 
         elif status["state"] == "success":
             status_label.config(text="✅ Concluído", foreground="green")
@@ -907,10 +905,17 @@ class TaskMonitorFrame(Frame):
             progress_bar.config(value=0)
             progress_bar.stop()
 
-        elif status["state"] == "waiting":
-            status_label.config(text="⏳ Aguardando", foreground="orange")
-            progress_bar.config(mode="indeterminate", bootstyle="warning")
-            progress_bar.start()
+        elif status["state"] == "warning":
+            status_label.config(text="⚠️ Aviso", foreground="orange")
+            progress_bar.config(mode="determinate", bootstyle="warning")
+            progress_bar.config(value=100)
+            progress_bar.stop()
+
+        elif status["state"] == "cancelled":
+            status_label.config(text="🚫 Cancelado", foreground="gray")
+            progress_bar.config(mode="determinate", bootstyle="secondary")
+            progress_bar.config(value=0)
+            progress_bar.stop()
 
         else:  # stopped or unknown
             status_label.config(text="⏹️ Parado", foreground="gray")
@@ -920,48 +925,26 @@ class TaskMonitorFrame(Frame):
 
         # Update time and details
         if "last_run_time" in status and status["last_run_time"]:
-            time_label.config(
-                text=f"Última execução: {status['last_run_time'].strftime('%H:%M:%S')}"
-            )
-        elif "start_time" in status and status["start_time"]:
-            time_label.config(
-                text=f"Última execução: {status['start_time'].strftime('%H:%M:%S')}"
-            )
+            try:
+                time_label.config(
+                    text=f"Última execução: {status['last_run_time'].strftime('%H:%M:%S')}"
+                )
+            except (AttributeError, ValueError) as e:
+                logger.warning(f"Error formatting last_run_time for {task_id}: {e}")
+                time_label.config(text="Última execução: --:--:--")
+        # else:
+        #     time_label.config(text="Última execução: --:--:--")
 
-        if "details" in status:
+        if "details" in status and status["details"]:
             detail_label.config(text=status["details"])
-
-    def _update_fallback_status(self):
-        """Fallback status update when detailed status is not available."""
-        thread_mapping = {
-            "file_reader": "file_reader_thread",
-            "db_processor": "db_processor_thread",
-            "db_sync": "db_sync_thread",
-        }
-
-        for task_id, thread_attr in thread_mapping.items():
-            if hasattr(self.controller, thread_attr):
-                thread = getattr(self.controller, thread_attr)
-                if thread and thread.is_alive():
-                    status = {
-                        "state": "running",
-                        "last_run_time": datetime.now(),
-                        "details": "Tarefa em execução...",
-                    }
-                else:
-                    status = {
-                        "state": "stopped",
-                        "last_run_time": None,
-                        "details": "Tarefa parada",
-                    }
-                self._update_single_task(task_id, status)
+        else:
+            detail_label.config(text="Aguardando...")
 
     def set_task_status(self, task_id, state, details="", last_run_time=None):
         """External method to set task status from the controller."""
         status = {
             "state": state,
-            "last_run_time": last_run_time or datetime.now(),
+            "last_run_time": last_run_time,
             "details": details,
         }
-        self._update_single_task(task_id, status)
         self._update_single_task(task_id, status)

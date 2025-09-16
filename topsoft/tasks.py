@@ -4,8 +4,10 @@ from datetime import datetime
 from queue import Empty
 
 from topsoft.models import Acesso
-from topsoft.settings import get_bilhetes_path, get_cutoff
+from topsoft.settings import get_bilhetes_path, get_cutoff, get_interval
 from topsoft.utils import (
+    BACKOFF_INTERVALS,
+    MAX_BACKOFF_LEVEL,
     fetch_and_sync_students,
     post_acessos_and_update_synced_status,
     process_events_to_database,
@@ -43,43 +45,40 @@ def task_file_reader(stop_event, queue):
     Reads the bilhetes file as fast as possible, detects new transactions, and queues them for DB insertion.
     This task only reads the file and queues raw data - no database operations.
     """
-    logger.info("Starting file reader task")
-    queue.put(
-        ("TASK_STATUS", ("file_reader", "running", "Iniciando leitor de arquivo..."))
-    )
+    TASK_ID = "file_reader"
 
+    logger.info("Starting file reader task")
     failure_count = 0
 
     while not stop_event.is_set():
         try:
+            # Check cancellation before starting file operations
+            check_cancellation_frequently(stop_event, "file reader", 0.05)
+
+            # Logger debug
+            logger.debug("File reader task cycle starting")
+
+            # Send initial start status
+            queue.put(
+                (
+                    "TASK_STATUS",
+                    (TASK_ID, "start", "Iniciando leitor de arquivos..."),
+                )
+            )
+
             bilhetes_path = get_bilhetes_path()
             if not bilhetes_path or bilhetes_path == "":
-                logger.warning("Bilhetes path not found")
-                failure_count += 1
-                queue.put(
-                    (
-                        "TASK_STATUS",
-                        (
-                            "file_reader",
-                            "error",
-                            f"Caminho do arquivo bilhetes não encontrado (tentativa {failure_count})",
-                        ),
-                    )
-                )
-                wait_for_interval_with_backoff(
-                    stop_event, "file reader task", failure_count
-                )
-                continue
+                raise FileNotFoundError("Caminho dos bilhetes não configurado")
 
             # Check cancellation before starting file operations
             check_cancellation_frequently(stop_event, "file reader", 0.05)
 
             # Fast file reading without database operations
-            logger.debug(f"Fast reading bilhetes from {bilhetes_path}")
+            logger.debug(f'Fast reading bilhetes from "{bilhetes_path}"')
             queue.put(
                 (
                     "TASK_STATUS",
-                    ("file_reader", "running", f"Lendo arquivo: {bilhetes_path}"),
+                    (TASK_ID, "running", f"Lendo arquivo: {bilhetes_path}"),
                 )
             )
 
@@ -97,7 +96,7 @@ def task_file_reader(stop_event, queue):
                     (
                         "TASK_STATUS",
                         (
-                            "file_reader",
+                            TASK_ID,
                             "success",
                             f"Encontrados {len(new_events)} novos eventos",
                         ),
@@ -109,16 +108,15 @@ def task_file_reader(stop_event, queue):
                 queue.put(
                     (
                         "TASK_STATUS",
-                        ("file_reader", "waiting", "Nenhum novo evento encontrado"),
+                        (TASK_ID, "success", "Nenhum novo evento encontrado"),
                     )
                 )
                 # Reset failure count on successful read (even if no new events)
                 failure_count = 0
-
         except InterruptedError:
             # Handle cancellation gracefully
             logger.info("File reader task cancelled")
-            queue.put(("TASK_STATUS", ("file_reader", "cancelled", "Tarefa cancelada")))
+            queue.put(("TASK_STATUS", (TASK_ID, "cancelled", "Tarefa cancelada")))
             break
         except Exception as e:
             failure_count += 1
@@ -129,7 +127,7 @@ def task_file_reader(stop_event, queue):
                 (
                     "TASK_STATUS",
                     (
-                        "file_reader",
+                        TASK_ID,
                         "error",
                         f"Erro: {str(e)} (tentativa {failure_count})",
                     ),
@@ -140,6 +138,10 @@ def task_file_reader(stop_event, queue):
                 stop_event, "file reader task", failure_count
             )
 
+    # Task is stopping, send final status
+    logger.info("File reader task stopping")
+    queue.put(("TASK_STATUS", (TASK_ID, "stopped", "Tarefa finalizada")))
+
 
 # Task 2: Process queued events into database
 def task_db_processor(stop_event, queue):
@@ -147,11 +149,28 @@ def task_db_processor(stop_event, queue):
     Takes raw events from the queue and processes them into the database.
     This task handles all database insertion operations.
     """
+    TASK_ID = "db_processor"
+
     logger.info("Starting database processor task")
+    failure_count = 0
+
+    # Send initial status
     queue.put(
         (
             "TASK_STATUS",
-            ("db_processor", "waiting", "Aguardando eventos para processar..."),
+            (TASK_ID, "start", "Iniciando processador de banco de dados..."),
+        )
+    )
+
+    # Initial waiting state
+    queue.put(
+        (
+            "TASK_STATUS",
+            (
+                TASK_ID,
+                "waiting",
+                "Aguardando novos eventos para processar...",
+            ),
         )
     )
 
@@ -163,11 +182,12 @@ def task_db_processor(stop_event, queue):
 
                 if message_type == "PROCESS_EVENTS":
                     logger.debug(f"Processing {len(data)} events into database")
+                    # Update status when starting to process new events
                     queue.put(
                         (
                             "TASK_STATUS",
                             (
-                                "db_processor",
+                                TASK_ID,
                                 "running",
                                 f"Processando {len(data)} eventos no banco...",
                             ),
@@ -195,9 +215,9 @@ def task_db_processor(stop_event, queue):
                                 (
                                     "TASK_STATUS",
                                     (
-                                        "db_processor",
+                                        TASK_ID,
                                         "success",
-                                        f"Processados {len(processed_records)} registros com sucesso",
+                                        f"Processados {len(processed_records)} registros. Aguardando novos eventos...",
                                     ),
                                 )
                             )
@@ -206,19 +226,33 @@ def task_db_processor(stop_event, queue):
                                 (
                                     "TASK_STATUS",
                                     (
-                                        "db_processor",
+                                        TASK_ID,
                                         "warning",
-                                        "Nenhum registro foi processado",
+                                        "Nenhum registro processado. Aguardando novos eventos...",
                                     ),
                                 )
                             )
+
+                        # After processing, go back to waiting state
+                        queue.put(
+                            (
+                                "TASK_STATUS",
+                                (
+                                    TASK_ID,
+                                    "waiting",
+                                    "Aguardando novos eventos para processar...",
+                                ),
+                            )
+                        )
+                        # Reset failure count on successful processing
+                        failure_count = 0
                     except InterruptedError:
                         logger.info("Database processor task cancelled")
                         queue.put(
                             (
                                 "TASK_STATUS",
                                 (
-                                    "db_processor",
+                                    TASK_ID,
                                     "cancelled",
                                     "Processamento cancelado",
                                 ),
@@ -227,24 +261,27 @@ def task_db_processor(stop_event, queue):
                         break
 
             except Empty:
-                # No new data, continue loop
+                # No new data, continue loop - status remains in waiting state
                 continue
 
         except InterruptedError:
             # Handle cancellation gracefully
             logger.info("Database processor task cancelled")
-            queue.put(
-                ("TASK_STATUS", ("db_processor", "cancelled", "Tarefa cancelada"))
-            )
+            queue.put(("TASK_STATUS", (TASK_ID, "cancelled", "Tarefa cancelada")))
             break
         except Exception as e:
+            failure_count += 1
             logger.warning(f"Error in database processor task: {e}")
             logger.exception(e)
-            queue.put(("TASK_STATUS", ("db_processor", "error", f"Erro: {str(e)}")))
+            queue.put(("TASK_STATUS", (TASK_ID, "error", f"Erro: {str(e)}")))
         finally:
             # Short pause to prevent busy waiting
             if not stop_event.is_set():
                 stop_event.wait(0.1)
+
+    # Task is stopping, send final status
+    logger.info("Database processor task stopping")
+    queue.put(("TASK_STATUS", (TASK_ID, "stopped", "Tarefa finalizada")))
 
 
 # Task 3: Sync unsynced DB records to API
@@ -253,24 +290,41 @@ def task_db_sync(stop_event, queue):
     Fetches unsynced transactions from the DB and pushes them to the API.
     This task only handles API synchronization with exponential backoff for network issues.
     """
-    logger.info("Starting DB sync task")
-    queue.put(
-        ("TASK_STATUS", ("db_sync", "running", "Iniciando sincronização com API..."))
-    )
+    TASK_ID = "db_sync"
 
+    logger.info("Starting DB sync task")
     failure_count = 0
+
+    # Send initial start status
+    queue.put(
+        (
+            "TASK_STATUS",
+            (TASK_ID, "start", "Iniciando sincronizador de banco..."),
+        )
+    )
 
     while not stop_event.is_set():
         try:
             # Check cancellation at start of each cycle
-            check_cancellation_frequently(stop_event, "db sync", 0.05)
+            check_cancellation_frequently(stop_event, TASK_ID, 0.05)
+
+            # Logger debug
+            logger.debug("DB sync task cycle starting")
+
+            # Send initial start status for this cycle
+            queue.put(
+                (
+                    "TASK_STATUS",
+                    (TASK_ID, "start", "Iniciando ciclo de sincronização..."),
+                )
+            )
 
             # Optionally, fetch and sync students if needed
             logger.debug("Fetching and syncing students")
             queue.put(
                 (
                     "TASK_STATUS",
-                    ("db_sync", "running", "Sincronizando dados de estudantes..."),
+                    (TASK_ID, "running", "Sincronizando dados de estudantes..."),
                 )
             )
 
@@ -287,98 +341,90 @@ def task_db_sync(stop_event, queue):
             queue.put(
                 (
                     "TASK_STATUS",
-                    ("db_sync", "running", "Buscando registros não sincronizados..."),
+                    (TASK_ID, "running", "Buscando registros não sincronizados..."),
                 )
             )
-            acessos = Acesso.get_unsynced()
-            logger.info(f"Found {len(acessos)} not synced access records")
+
+            # Get cutoff date and filter directly in database for better performance
+            cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
+            acessos = Acesso.get_unsynced(cutoff_date=cutoff)
+            logger.info(
+                f"Found {len(acessos)} unsynced access records after cutoff date {cutoff}"
+            )
 
             if acessos:
-                cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
-                acessos = [a for a in acessos if a.date >= cutoff]
-                logger.info(
-                    f"Filtered {len(acessos)} acessos before cutoff date {cutoff}"
+                # Check cancellation before API operations
+                check_cancellation_frequently(stop_event, "db sync", 0.05)
+
+                logger.debug("Posting access records to API and updating synced status")
+                queue.put(
+                    (
+                        "TASK_STATUS",
+                        (
+                            TASK_ID,
+                            "running",
+                            f"Enviando {len(acessos)} registros para API...",
+                        ),
+                    )
                 )
 
-                if acessos:
-                    # Check cancellation before API operations
-                    check_cancellation_frequently(stop_event, "db sync", 0.05)
-
-                    logger.debug(
-                        "Posting access records to API and updating synced status"
+                try:
+                    results = asyncio.run(
+                        post_acessos_and_update_synced_status(acessos)
                     )
+
+                    if results:
+                        queue.put(("SYNC_COMPLETED", [acesso.id for acesso in results]))
+                        logger.debug(
+                            f"Put {len(results)} synced access records into the queue"
+                        )
+                        queue.put(
+                            (
+                                "TASK_STATUS",
+                                (
+                                    TASK_ID,
+                                    "success",
+                                    f"Sincronizados {len(results)} registros com sucesso",
+                                ),
+                            )
+                        )
+                        # Reset failure count on successful sync
+                        failure_count = 0
+                    else:
+                        queue.put(
+                            (
+                                "TASK_STATUS",
+                                (
+                                    TASK_ID,
+                                    "warning",
+                                    "Nenhum registro foi sincronizado",
+                                ),
+                            )
+                        )
+                        # Reset failure count even if no records were synced (not a failure)
+                        failure_count = 0
+                except Exception as api_error:
+                    logger.error(f"Error during API sync: {api_error}")
+                    # Update status to show error occurred, but don't raise yet
                     queue.put(
                         (
                             "TASK_STATUS",
                             (
-                                "db_sync",
-                                "running",
-                                f"Enviando {len(acessos)} registros para API...",
+                                TASK_ID,
+                                "error",
+                                f"Erro durante sincronização: {str(api_error)[:50]}...",
                             ),
                         )
                     )
-
-                    try:
-                        results = asyncio.run(
-                            post_acessos_and_update_synced_status(acessos)
-                        )
-
-                        if results:
-                            queue.put(
-                                ("SYNC_COMPLETED", [acesso.id for acesso in results])
-                            )
-                            logger.debug(
-                                f"Put {len(results)} synced access records into the queue"
-                            )
-                            queue.put(
-                                (
-                                    "TASK_STATUS",
-                                    (
-                                        "db_sync",
-                                        "success",
-                                        f"Sincronizados {len(results)} registros com sucesso",
-                                    ),
-                                )
-                            )
-                            # Reset failure count on successful sync
-                            failure_count = 0
-                        else:
-                            queue.put(
-                                (
-                                    "TASK_STATUS",
-                                    (
-                                        "db_sync",
-                                        "warning",
-                                        "Nenhum registro foi sincronizado",
-                                    ),
-                                )
-                            )
-                            # Reset failure count even if no records were synced (not a failure)
-                            failure_count = 0
-                    except Exception as api_error:
-                        logger.error(f"Error during API sync: {api_error}")
-                        raise  # Re-raise to be caught by outer exception handler
-                else:
-                    queue.put(
-                        (
-                            "TASK_STATUS",
-                            (
-                                "db_sync",
-                                "waiting",
-                                "Nenhum registro para sincronizar após filtro",
-                            ),
-                        )
-                    )
-                    # Reset failure count when no records to sync
-                    failure_count = 0
+                    raise  # Re-raise to be caught by outer exception handler
             else:
                 queue.put(
                     (
                         "TASK_STATUS",
                         (
-                            "db_sync",
-                            "waiting",
-                            "Nenhum registro não sincronizado encontrado",
+                            TASK_ID,
+                            "success",
+                            "Sincronização concluída - nenhum registro não sincronizado encontrado",
                         ),
                     )
                 )
@@ -389,7 +435,7 @@ def task_db_sync(stop_event, queue):
             # Handle cancellation gracefully
             logger.info("DB sync task cancelled")
             queue.put(
-                ("TASK_STATUS", ("db_sync", "cancelled", "Sincronização cancelada"))
+                ("TASK_STATUS", (TASK_ID, "cancelled", "Sincronização cancelada"))
             )
             break
         except Exception as e:
@@ -409,8 +455,21 @@ def task_db_sync(stop_event, queue):
             queue.put(
                 (
                     "TASK_STATUS",
-                    ("db_sync", "error", f"Erro: {str(e)} (tentativa {failure_count})"),
+                    (TASK_ID, "error", f"Erro: {str(e)} (tentativa {failure_count})"),
                 )
             )
         finally:
             wait_for_interval_with_backoff(stop_event, "DB sync task", failure_count)
+
+            # Signal start of new cycle after the wait
+            if not stop_event.is_set():
+                queue.put(
+                    (
+                        "TASK_STATUS",
+                        (TASK_ID, "start", "Iniciando novo ciclo de sincronização..."),
+                    )
+                )
+
+    # Task is stopping, send final status
+    logger.info("DB sync task stopping")
+    queue.put(("TASK_STATUS", (TASK_ID, "stopped", "Tarefa finalizada")))

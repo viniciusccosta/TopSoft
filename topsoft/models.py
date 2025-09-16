@@ -486,7 +486,7 @@ class Acesso(BaseModel, table=True):
             return []
 
     @classmethod
-    def get_unsynced(cls) -> List["Acesso"]:
+    def get_unsynced(cls, cutoff_date=None) -> List["Acesso"]:
         """Get all unsynced access records with related cartao_acesso and aluno eagerly loaded"""
         from sqlalchemy.orm import joinedload
 
@@ -496,6 +496,11 @@ class Acesso(BaseModel, table=True):
             .where(cls.synced == False)
             .options(joinedload(cls.cartao_acesso).joinedload(CartaoAcesso.aluno))
         )
+
+        # Apply cutoff filter directly in database query for performance
+        if cutoff_date:
+            statement = statement.where(cls.date >= cutoff_date)
+
         return session.exec(statement).all()
 
     @classmethod
