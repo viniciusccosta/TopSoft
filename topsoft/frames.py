@@ -661,18 +661,6 @@ class TaskMonitorFrame(Frame):
         for task_id, task_name, task_description in tasks:
             self._create_task_monitor(main_frame, task_id, task_name, task_description)
 
-        # Refresh button
-        refresh_frame = ttk.Frame(main_frame)
-        refresh_frame.pack(fill="x", pady=(20, 0))
-
-        refresh_btn = ttk.Button(
-            refresh_frame,
-            text="🔄 Atualizar Status",
-            command=self.refresh_status,
-            bootstyle="info",
-        )
-        refresh_btn.pack(anchor="center")
-
         # Start status updates
         self.update_task_status()
 
@@ -704,7 +692,7 @@ class TaskMonitorFrame(Frame):
         # Time label
         time_label = ttk.Label(
             status_time_frame,
-            text="Iniciado: --:--:--",
+            text="Última execução: --:--:--",
             font=("Arial", 9),
             foreground="gray",
         )
@@ -787,9 +775,13 @@ class TaskMonitorFrame(Frame):
             progress_bar.stop()
 
         # Update time and details
-        if "start_time" in status and status["start_time"]:
+        if "last_run_time" in status and status["last_run_time"]:
             time_label.config(
-                text=f"Iniciado: {status['start_time'].strftime('%H:%M:%S')}"
+                text=f"Última execução: {status['last_run_time'].strftime('%H:%M:%S')}"
+            )
+        elif "start_time" in status and status["start_time"]:
+            time_label.config(
+                text=f"Última execução: {status['start_time'].strftime('%H:%M:%S')}"
             )
 
         if "details" in status:
@@ -809,26 +801,22 @@ class TaskMonitorFrame(Frame):
                 if thread and thread.is_alive():
                     status = {
                         "state": "running",
-                        "start_time": datetime.now(),
+                        "last_run_time": datetime.now(),
                         "details": "Tarefa em execução...",
                     }
                 else:
                     status = {
                         "state": "stopped",
-                        "start_time": None,
+                        "last_run_time": None,
                         "details": "Tarefa parada",
                     }
                 self._update_single_task(task_id, status)
 
-    def refresh_status(self):
-        """Manually refresh the status of all tasks."""
-        self.update_task_status()
-
-    def set_task_status(self, task_id, state, details="", start_time=None):
+    def set_task_status(self, task_id, state, details="", last_run_time=None):
         """External method to set task status from the controller."""
         status = {
             "state": state,
-            "start_time": start_time or datetime.now(),
+            "last_run_time": last_run_time or datetime.now(),
             "details": details,
         }
         self._update_single_task(task_id, status)
