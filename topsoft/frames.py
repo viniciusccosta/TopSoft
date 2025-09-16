@@ -24,6 +24,7 @@ from topsoft.settings import (
     set_cutoff,
     set_interval,
 )
+from topsoft.tasks import TaskState
 
 logger = logging.getLogger(__name__)
 
@@ -765,6 +766,7 @@ class ConfigurationFrame(Frame):
 class TaskMonitorFrame(Frame):
     """
     A frame for monitoring the status of background tasks with progress bars and status indicators.
+    Polls task status from the task registry instead of using queues.
     """
 
     def __init__(self, parent, controller, *args, **kwargs):
@@ -813,6 +815,9 @@ class TaskMonitorFrame(Frame):
 
         for task_id, task_name, task_description in tasks:
             self._create_task_monitor(main_frame, task_id, task_name, task_description)
+
+        # Start polling for task updates
+        self._start_status_polling()
 
     def _create_task_monitor(self, parent, task_id, task_name, task_description):
         """Create monitoring widgets for a single task."""
@@ -866,8 +871,30 @@ class TaskMonitorFrame(Frame):
         detail_label.pack(anchor="w")
         self.detail_labels[task_id] = detail_label
 
-    def _update_single_task(self, task_id, status):
-        """Update a single task's visual status."""
+    def _start_status_polling(self):
+        """Start polling task status from the controller's task instances."""
+        self._update_all_tasks()
+        # Schedule next update
+        self.after(100, self._start_status_polling)
+
+    def _update_all_tasks(self):
+        """Update all task displays by reading from the controller's task instances."""
+        # Get task instances directly from controller
+        tasks = {
+            "file_reader": getattr(self.controller, "file_reader_task", None),
+            "db_processor": getattr(self.controller, "db_processor_task", None),
+            "db_sync": getattr(self.controller, "db_sync_task", None),
+        }
+
+        for task_id, task in tasks.items():
+            if task and task_id in self.task_frames:
+                self._update_task_display(task_id, task)
+            elif task_id in self.task_frames:
+                # Task not yet initialized, show waiting state
+                self._update_task_display_waiting(task_id)
+
+    def _update_task_display(self, task_id, task):
+        """Update the display for a specific task."""
         if task_id not in self.progress_bars:
             return
 
@@ -876,75 +903,103 @@ class TaskMonitorFrame(Frame):
         time_label = self.time_labels[task_id]
         detail_label = self.detail_labels[task_id]
 
-        # Update based on status
-        if status["state"] == "start":
+        state = task.state
+        details = task.details
+        last_run_time = task.last_run_time
+        error_message = task.error_message
+
+        # Update based on state
+        if state == TaskState.STARTING:
             status_label.config(text="🚀 Iniciando", foreground="purple")
             progress_bar.config(mode="indeterminate", bootstyle="info")
             progress_bar.start()
 
-        elif status["state"] == "running":
+        elif state == TaskState.RUNNING:
             status_label.config(text="🟢 Executando", foreground="green")
             progress_bar.config(mode="indeterminate", bootstyle="success")
             progress_bar.start()
 
-        elif status["state"] == "waiting":
+        elif state == TaskState.WAITING:
             status_label.config(text="⏳ Aguardando", foreground="blue")
             progress_bar.config(mode="determinate", bootstyle="info")
             progress_bar.config(value=0)
             progress_bar.stop()
 
-        elif status["state"] == "success":
+        elif state == TaskState.SUCCESS:
             status_label.config(text="✅ Concluído", foreground="green")
             progress_bar.config(mode="determinate", bootstyle="success")
             progress_bar.config(value=100)
             progress_bar.stop()
 
-        elif status["state"] == "error":
+        elif state == TaskState.ERROR:
             status_label.config(text="❌ Erro", foreground="red")
             progress_bar.config(mode="determinate", bootstyle="danger")
             progress_bar.config(value=0)
             progress_bar.stop()
 
-        elif status["state"] == "warning":
+        elif state == TaskState.WARNING:
             status_label.config(text="⚠️ Aviso", foreground="orange")
             progress_bar.config(mode="determinate", bootstyle="warning")
             progress_bar.config(value=100)
             progress_bar.stop()
 
-        elif status["state"] == "cancelled":
+        elif state == TaskState.CANCELLED:
             status_label.config(text="🚫 Cancelado", foreground="gray")
             progress_bar.config(mode="determinate", bootstyle="secondary")
             progress_bar.config(value=0)
             progress_bar.stop()
 
-        else:  # stopped or unknown
+        else:  # STOPPED or unknown
             status_label.config(text="⏹️ Parado", foreground="gray")
             progress_bar.config(mode="determinate", bootstyle="secondary")
             progress_bar.config(value=0)
             progress_bar.stop()
 
         # Update time and details
-        if "last_run_time" in status and status["last_run_time"]:
+        if last_run_time:
             try:
                 time_label.config(
-                    text=f"Última execução: {status['last_run_time'].strftime('%H:%M:%S')}"
+                    text=f"Última execução: {last_run_time.strftime('%H:%M:%S')}"
                 )
             except (AttributeError, ValueError) as e:
                 logger.warning(f"Error formatting last_run_time for {task_id}: {e}")
                 time_label.config(text="Última execução: --:--:--")
-        # else:
-        #     time_label.config(text="Última execução: --:--:--")
 
-        if "details" in status and status["details"]:
-            detail_label.config(text=status["details"])
+        if details:
+            detail_label.config(text=details)
+        elif error_message:
+            detail_label.config(text=f"Erro: {error_message}")
         else:
             detail_label.config(text="Aguardando...")
 
+    def _update_task_display_waiting(self, task_id):
+        """Update display for a task that hasn't been registered yet."""
+        if task_id not in self.progress_bars:
+            return
+
+        progress_bar = self.progress_bars[task_id]
+        status_label = self.status_labels[task_id]
+        detail_label = self.detail_labels[task_id]
+
+        status_label.config(text="⏳ Aguardando", foreground="blue")
+        progress_bar.config(mode="determinate", bootstyle="info")
+        progress_bar.config(value=0)
+        progress_bar.stop()
+        detail_label.config(text="Aguardando registro da tarefa...")
+
     def set_task_status(self, task_id, state, details="", last_run_time=None):
-        """External method to set task status from the controller."""
-        status = {
-            "state": state,
-            "last_run_time": last_run_time,
-            "details": details,
-        }
-        self._update_single_task(task_id, status)
+        """
+        Legacy method for compatibility.
+        Tasks should now update their status directly through the task registry.
+        """
+        # This method is kept for backward compatibility but should not be used
+        # with the new task monitoring system
+        logger.warning(
+            f"Legacy set_task_status called for {task_id}. "
+            "Tasks should update their status through the task registry."
+        )
+
+    def _update_single_task(self, task_id, status):
+        """Legacy method kept for compatibility."""
+        # This method is no longer used with the new polling system
+        pass
