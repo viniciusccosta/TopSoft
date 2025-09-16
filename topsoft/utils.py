@@ -9,7 +9,13 @@ import toml
 from pygtail import Pygtail
 
 from topsoft.activitysoft.api import get_students_from_api, post_accessos_concurrently
-from topsoft.constants import DB_BATCH_SIZE, FILE_READ_CHUNK_SIZE, OFFSET_PATH
+from topsoft.constants import (
+    BACKOFF_INTERVALS,
+    DB_BATCH_SIZE,
+    FILE_READ_CHUNK_SIZE,
+    MAX_BACKOFF_LEVEL,
+    OFFSET_PATH,
+)
 from topsoft.models import Acesso, Aluno
 from topsoft.repository import bulk_process_turnstile_events, process_turnstile_event
 from topsoft.settings import get_interval
@@ -182,6 +188,52 @@ def wait_for_interval(stop_event, task_name="background task"):
 
     # Timeout occurred - normal end of wait period
     logger.debug(f"{task_name}: Wait period completed, resuming processing")
+
+
+def wait_for_interval_with_backoff(
+    stop_event, task_name="background task", failure_count=0
+):
+    """
+    Wait for interval with exponential backoff based on consecutive failures.
+    This reduces the frequency of retries when there are persistent issues (like network problems).
+
+    Backoff levels:
+    - 0 failures: Normal interval (from settings)
+    - 1+ failures: 1min → 5min → 10min → 30min (then stays at 30min)
+
+    Parameters:
+    - stop_event (threading.Event): An event to signal when to stop waiting.
+    - task_name (str): Name of the task for logging purposes.
+    - failure_count (int): Number of consecutive failures (0 = no failures).
+
+    Returns:
+    - None
+    """
+
+    if failure_count == 0:
+        # No failures - use normal interval
+        intervalo = get_interval() * 60
+        logger.debug(f"{task_name}: Waiting {intervalo} seconds (normal interval)")
+    else:
+        # Apply exponential backoff
+        backoff_level = min(failure_count - 1, MAX_BACKOFF_LEVEL)
+        intervalo = BACKOFF_INTERVALS[backoff_level] * 60
+
+        if failure_count == 1:
+            logger.info(
+                f"{task_name}: First failure detected, waiting {BACKOFF_INTERVALS[backoff_level]} minutes before retry"
+            )
+        else:
+            logger.warning(
+                f"{task_name}: {failure_count} consecutive failures, using backoff interval: {BACKOFF_INTERVALS[backoff_level]} minutes"
+            )
+
+    # Use stop_event.wait() for immediate interruption
+    if stop_event.wait(timeout=intervalo):
+        logger.info(f"Stopping {task_name} (interrupted during backoff wait)")
+        return
+
+    logger.debug(f"{task_name}: Backoff wait period completed, resuming processing")
 
 
 def wait_until_next_hour(stop_event):

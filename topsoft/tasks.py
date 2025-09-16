@@ -11,6 +11,7 @@ from topsoft.utils import (
     process_events_to_database,
     read_bilhetes_fast,
     wait_for_interval,
+    wait_for_interval_with_backoff,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,22 +28,27 @@ def task_file_reader(stop_event, queue):
         ("TASK_STATUS", ("file_reader", "running", "Iniciando leitor de arquivo..."))
     )
 
+    failure_count = 0
+
     while not stop_event.is_set():
         try:
             bilhetes_path = get_bilhetes_path()
             if not bilhetes_path or bilhetes_path == "":
                 logger.warning("Bilhetes path not found")
+                failure_count += 1
                 queue.put(
                     (
                         "TASK_STATUS",
                         (
                             "file_reader",
                             "error",
-                            "Caminho do arquivo bilhetes não encontrado",
+                            f"Caminho do arquivo bilhetes não encontrado (tentativa {failure_count})",
                         ),
                     )
                 )
-                wait_for_interval(stop_event, "file reader task")
+                wait_for_interval_with_backoff(
+                    stop_event, "file reader task", failure_count
+                )
                 continue
 
             # Fast file reading without database operations
@@ -71,6 +77,8 @@ def task_file_reader(stop_event, queue):
                         ),
                     )
                 )
+                # Reset failure count on success
+                failure_count = 0
             else:
                 queue.put(
                     (
@@ -78,13 +86,28 @@ def task_file_reader(stop_event, queue):
                         ("file_reader", "waiting", "Nenhum novo evento encontrado"),
                     )
                 )
+                # Reset failure count on successful read (even if no new events)
+                failure_count = 0
 
         except Exception as e:
-            logger.warning(f"Error in file reader task: {e}")
-            logger.exception(e)
-            queue.put(("TASK_STATUS", ("file_reader", "error", f"Erro: {str(e)}")))
+            failure_count += 1
+            logger.warning(f"Error in file reader task (failure #{failure_count}): {e}")
+            if failure_count <= 3:  # Only log full exception for first few failures
+                logger.exception(e)
+            queue.put(
+                (
+                    "TASK_STATUS",
+                    (
+                        "file_reader",
+                        "error",
+                        f"Erro: {str(e)} (tentativa {failure_count})",
+                    ),
+                )
+            )
         finally:
-            wait_for_interval(stop_event, "file reader task")
+            wait_for_interval_with_backoff(
+                stop_event, "file reader task", failure_count
+            )
 
 
 # Task 2: Process queued events into database
@@ -169,12 +192,14 @@ def task_db_processor(stop_event, queue):
 def task_db_sync(stop_event, queue):
     """
     Fetches unsynced transactions from the DB and pushes them to the API.
-    This task only handles API synchronization.
+    This task only handles API synchronization with exponential backoff for network issues.
     """
     logger.info("Starting DB sync task")
     queue.put(
         ("TASK_STATUS", ("db_sync", "running", "Iniciando sincronização com API..."))
     )
+
+    failure_count = 0
 
     while not stop_event.is_set():
         try:
@@ -239,6 +264,8 @@ def task_db_sync(stop_event, queue):
                                 ),
                             )
                         )
+                        # Reset failure count on successful sync
+                        failure_count = 0
                     else:
                         queue.put(
                             (
@@ -250,6 +277,8 @@ def task_db_sync(stop_event, queue):
                                 ),
                             )
                         )
+                        # Reset failure count even if no records were synced (not a failure)
+                        failure_count = 0
                 else:
                     queue.put(
                         (
@@ -261,6 +290,8 @@ def task_db_sync(stop_event, queue):
                             ),
                         )
                     )
+                    # Reset failure count when no records to sync
+                    failure_count = 0
             else:
                 queue.put(
                     (
@@ -272,10 +303,28 @@ def task_db_sync(stop_event, queue):
                         ),
                     )
                 )
+                # Reset failure count when no records to sync
+                failure_count = 0
 
         except Exception as e:
-            logger.warning(f"Error in DB sync task: {e}")
-            logger.exception(e)
-            queue.put(("TASK_STATUS", ("db_sync", "error", f"Erro: {str(e)}")))
+            failure_count += 1
+
+            # Reduce logging frequency for repeated network failures
+            if failure_count <= 3:
+                logger.warning(f"Error in DB sync task (failure #{failure_count}): {e}")
+                logger.exception(e)
+            elif failure_count % 10 == 0:  # Log every 10th failure to track persistence
+                logger.error(
+                    f"DB sync task still failing after {failure_count} attempts: {e}"
+                )
+            else:
+                logger.debug(f"DB sync task failure #{failure_count}: {e}")
+
+            queue.put(
+                (
+                    "TASK_STATUS",
+                    ("db_sync", "error", f"Erro: {str(e)} (tentativa {failure_count})"),
+                )
+            )
         finally:
-            wait_for_interval(stop_event, "DB sync task")
+            wait_for_interval_with_backoff(stop_event, "DB sync task", failure_count)

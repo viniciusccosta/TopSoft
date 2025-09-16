@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 
 from decouple import config
 from rich.logging import RichHandler
@@ -6,13 +7,21 @@ from rich.logging import RichHandler
 
 def configure_logger():
     """
-    Configure the logger for the application.
+    Configure the logger for the application with log rotation.
     """
 
     log_level = config("LOGGING_LEVEL", default=logging.INFO)
 
-    # Handlers:
-    file_handler = logging.FileHandler("topsoft.log")
+    # Log rotation configuration
+    max_log_size = (
+        config("MAX_LOG_SIZE_MB", default=50, cast=int) * 1024 * 1024
+    )  # Convert MB to bytes
+    backup_count = config("LOG_BACKUP_COUNT", default=5, cast=int)
+
+    # Handlers with rotation:
+    file_handler = RotatingFileHandler(
+        "topsoft.log", maxBytes=max_log_size, backupCount=backup_count, encoding="utf-8"
+    )
     file_handler.setLevel(log_level)
     file_handler.setFormatter(
         logging.Formatter(
