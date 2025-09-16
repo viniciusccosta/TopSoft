@@ -1513,6 +1513,54 @@ class ConfigurationFrame(Frame):
         )
         self.cb_edit_api.pack(expand=False, padx=10, pady=10, side="left")
 
+        # Database Backup/Restore Section
+        self.lf_database = ttk.LabelFrame(
+            self, text="Backup e Restauração do Banco de Dados"
+        )
+        self.lf_database.pack(expand=False, fill="x", padx=10, pady=10)
+
+        # Info label
+        info_label = ttk.Label(
+            self.lf_database,
+            text="💾 Faça backup dos dados em formato JSON para segurança e portabilidade",
+            font=("Arial", 9),
+            foreground="gray",
+        )
+        info_label.pack(anchor="w", padx=10, pady=(10, 5))
+
+        # Buttons frame
+        db_buttons_frame = ttk.Frame(self.lf_database)
+        db_buttons_frame.pack(fill="x", padx=10, pady=10)
+
+        # Export database button
+        self.btn_export_db = ttk.Button(
+            db_buttons_frame,
+            text="⬆ Exportar BD (JSON)",
+            command=self.export_database_json,
+            bootstyle="info",
+            width=20,
+        )
+        self.btn_export_db.pack(side="left", padx=(0, 10))
+
+        # Import database button
+        self.btn_import_db = ttk.Button(
+            db_buttons_frame,
+            text="⬇ Importar BD (JSON)",
+            command=self.import_database_json,
+            bootstyle="warning",
+            width=20,
+        )
+        self.btn_import_db.pack(side="left")
+
+        # Warning label
+        warning_label = ttk.Label(
+            self.lf_database,
+            text="⚠️ Aviso: A importação substitui TODOS os dados existentes. Faça backup antes!",
+            font=("Arial", 8),
+            foreground="red",
+        )
+        warning_label.pack(anchor="w", padx=10, pady=(0, 10))
+
         # Save Button
         self.btn_save = ttk.Button(
             self,
@@ -1588,6 +1636,301 @@ class ConfigurationFrame(Frame):
             title="Configurações Salvas",
             message="As configurações foram salvas com sucesso!",
         )
+
+    def export_database_json(self):
+        """
+        Export the entire database to a JSON file.
+        """
+        # Ask user for filename and path
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Exportar Banco de Dados",
+            initialfile=f"topsoft_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+        )
+
+        if not filename:
+            return
+
+        try:
+            # Start export in background thread
+            threading.Thread(
+                target=self._export_database_thread, args=(filename,), daemon=True
+            ).start()
+
+        except Exception as e:
+            logger.error(f"Error starting database export: {e}")
+            Messagebox.show_error(f"Erro ao iniciar exportação: {e}", "Erro")
+
+    def _export_database_thread(self, filename):
+        """Background thread for database export."""
+        try:
+            import json
+            from datetime import date, datetime, time
+
+            from topsoft.models import Acesso, Aluno, CartaoAcesso
+
+            # Show progress
+            self.after(
+                0,
+                lambda: Messagebox.show_info(
+                    "Exportação iniciada. Por favor aguarde...", "Exportando"
+                ),
+            )
+
+            # Collect all data
+            export_data = {
+                "export_info": {
+                    "timestamp": datetime.now().isoformat(),
+                    "version": "1.0",
+                    "description": "TopSoft Database Backup",
+                },
+                "alunos": [],
+                "cartoes_acesso": [],
+                "acessos": [],
+            }
+
+            # Export Alunos
+            alunos = Aluno.get_all()
+            for aluno in alunos:
+                aluno_data = {
+                    "id": aluno.id,
+                    "nome": aluno.nome,
+                    "matricula": aluno.matricula,
+                    "responsavel_id": aluno.responsavel_id,
+                    "cpf": aluno.cpf,
+                    "sexo": aluno.sexo,
+                    "data_nascimento": (
+                        aluno.data_nascimento.isoformat()
+                        if aluno.data_nascimento
+                        else None
+                    ),
+                    "celular": aluno.celular,
+                    "email": aluno.email,
+                    "url_foto": aluno.url_foto,
+                    "responsavel_secundario_id": aluno.responsavel_secundario_id,
+                    "filiacao_1_id": aluno.filiacao_1_id,
+                    "filiacao_2_id": aluno.filiacao_2_id,
+                    "cartao_acesso": aluno.cartao_acesso,
+                    "unidade_id": aluno.unidade_id,
+                    "tipo_liberacao": aluno.tipo_liberacao,
+                    "foto_data_hora_alteracao": (
+                        aluno.foto_data_hora_alteracao.isoformat()
+                        if aluno.foto_data_hora_alteracao
+                        else None
+                    ),
+                    "responsaveis_adicionais_ids": aluno.responsaveis_adicionais_ids,
+                    "id_turmas": aluno.id_turmas,
+                }
+                export_data["alunos"].append(aluno_data)
+
+            # Export CartaoAcesso
+            cartoes = CartaoAcesso.get_all()
+            for cartao in cartoes:
+                cartao_data = {
+                    "id": cartao.id,
+                    "numeracao": cartao.numeracao,
+                    "aluno_id": cartao.aluno_id,
+                }
+                export_data["cartoes_acesso"].append(cartao_data)
+
+            # Export Acessos
+            acessos = Acesso.get_all()
+            for acesso in acessos:
+                acesso_data = {
+                    "id": acesso.id,
+                    "marcacao": acesso.marcacao,
+                    "date": acesso.date.isoformat(),
+                    "time": acesso.time.strftime("%H:%M:%S"),
+                    "catraca": acesso.catraca,
+                    "synced": acesso.synced,
+                    "cartao_acesso_id": acesso.cartao_acesso_id,
+                }
+                export_data["acessos"].append(acesso_data)
+
+            # Write to file
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+
+            # Show success message
+            self.after(
+                0,
+                lambda: Messagebox.show_info(
+                    f"Banco de dados exportado com sucesso!\n\n"
+                    f"Arquivo: {filename}\n"
+                    f"Alunos: {len(export_data['alunos'])}\n"
+                    f"Cartões: {len(export_data['cartoes_acesso'])}\n"
+                    f"Acessos: {len(export_data['acessos'])}",
+                    "Exportação Concluída",
+                ),
+            )
+
+            logger.info(f"Database exported successfully to {filename}")
+
+        except Exception as e:
+            logger.error(f"Error exporting database: {e}")
+            self.after(
+                0,
+                lambda: Messagebox.show_error(
+                    f"Erro durante exportação:\n{str(e)}", "Erro na Exportação"
+                ),
+            )
+
+    def import_database_json(self):
+        """
+        Import database from a JSON file.
+        """
+        # Warning dialog
+        result = Messagebox.show_question(
+            "⚠️ ATENÇÃO: Esta operação substituirá TODOS os dados existentes!\n\n"
+            "Recomenda-se fazer um backup antes de continuar.\n\n"
+            "Deseja continuar com a importação?",
+            "Confirmar Importação",
+        )
+
+        if result != "Yes":
+            return
+
+        # Ask user for file to import
+        filename = filedialog.askopenfilename(
+            title="Importar Banco de Dados",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+
+        if not filename:
+            return
+
+        try:
+            # Start import in background thread
+            threading.Thread(
+                target=self._import_database_thread, args=(filename,), daemon=True
+            ).start()
+
+        except Exception as e:
+            logger.error(f"Error starting database import: {e}")
+            Messagebox.show_error(f"Erro ao iniciar importação: {e}", "Erro")
+
+    def _import_database_thread(self, filename):
+        """Background thread for database import."""
+        try:
+            import json
+            from datetime import date, datetime, time
+
+            from topsoft.database import get_session
+            from topsoft.models import Acesso, Aluno, CartaoAcesso
+
+            # Show progress
+            self.after(
+                0,
+                lambda: Messagebox.show_info(
+                    "Importação iniciada. Por favor aguarde...", "Importando"
+                ),
+            )
+
+            # Read and parse JSON
+            with open(filename, "r", encoding="utf-8") as f:
+                import_data = json.load(f)
+
+            session = get_session()
+
+            try:
+                # Clear existing data
+                session.query(Acesso).delete()
+                session.query(CartaoAcesso).delete()
+                session.query(Aluno).delete()
+                session.commit()
+
+                # Import Alunos
+                for aluno_data in import_data.get("alunos", []):
+                    aluno = Aluno(
+                        id=aluno_data.get("id"),
+                        nome=aluno_data.get("nome"),
+                        matricula=aluno_data.get("matricula"),
+                        responsavel_id=aluno_data.get("responsavel_id"),
+                        cpf=aluno_data.get("cpf"),
+                        sexo=aluno_data.get("sexo"),
+                        data_nascimento=(
+                            datetime.fromisoformat(aluno_data["data_nascimento"])
+                            if aluno_data.get("data_nascimento")
+                            else None
+                        ),
+                        celular=aluno_data.get("celular"),
+                        email=aluno_data.get("email"),
+                        url_foto=aluno_data.get("url_foto"),
+                        responsavel_secundario_id=aluno_data.get(
+                            "responsavel_secundario_id"
+                        ),
+                        filiacao_1_id=aluno_data.get("filiacao_1_id"),
+                        filiacao_2_id=aluno_data.get("filiacao_2_id"),
+                        cartao_acesso=aluno_data.get("cartao_acesso"),
+                        unidade_id=aluno_data.get("unidade_id"),
+                        tipo_liberacao=aluno_data.get("tipo_liberacao"),
+                        foto_data_hora_alteracao=(
+                            datetime.fromisoformat(
+                                aluno_data["foto_data_hora_alteracao"]
+                            )
+                            if aluno_data.get("foto_data_hora_alteracao")
+                            else None
+                        ),
+                        responsaveis_adicionais_ids=aluno_data.get(
+                            "responsaveis_adicionais_ids", []
+                        ),
+                        id_turmas=aluno_data.get("id_turmas", []),
+                    )
+                    session.add(aluno)
+
+                # Import CartaoAcesso
+                for cartao_data in import_data.get("cartoes_acesso", []):
+                    cartao = CartaoAcesso(
+                        id=cartao_data.get("id"),
+                        numeracao=cartao_data.get("numeracao"),
+                        aluno_id=cartao_data.get("aluno_id"),
+                    )
+                    session.add(cartao)
+
+                # Import Acessos
+                for acesso_data in import_data.get("acessos", []):
+                    acesso = Acesso(
+                        id=acesso_data.get("id"),
+                        marcacao=acesso_data.get("marcacao"),
+                        date=date.fromisoformat(acesso_data["date"]),
+                        time=time.fromisoformat(acesso_data["time"]),
+                        catraca=acesso_data.get("catraca"),
+                        synced=acesso_data.get("synced", False),
+                        cartao_acesso_id=acesso_data.get("cartao_acesso_id"),
+                    )
+                    session.add(acesso)
+
+                session.commit()
+
+                # Show success message
+                self.after(
+                    0,
+                    lambda: Messagebox.show_info(
+                        f"Banco de dados importado com sucesso!\n\n"
+                        f"Arquivo: {filename}\n"
+                        f"Alunos: {len(import_data.get('alunos', []))}\n"
+                        f"Cartões: {len(import_data.get('cartoes_acesso', []))}\n"
+                        f"Acessos: {len(import_data.get('acessos', []))}\n\n"
+                        f"Reinicie a aplicação para ver os dados importados.",
+                        "Importação Concluída",
+                    ),
+                )
+
+                logger.info(f"Database imported successfully from {filename}")
+
+            except Exception as e:
+                session.rollback()
+                raise e
+
+        except Exception as e:
+            logger.error(f"Error importing database: {e}")
+            self.after(
+                0,
+                lambda: Messagebox.show_error(
+                    f"Erro durante importação:\n{str(e)}", "Erro na Importação"
+                ),
+            )
 
 
 class TaskMonitorFrame(Frame):
@@ -1828,5 +2171,7 @@ class TaskMonitorFrame(Frame):
 
     def _update_single_task(self, task_id, status):
         """Legacy method kept for compatibility."""
+        # This method is no longer used with the new polling system
+        pass
         # This method is no longer used with the new polling system
         pass
