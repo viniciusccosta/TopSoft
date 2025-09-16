@@ -9,7 +9,7 @@ import toml
 from pygtail import Pygtail
 
 from topsoft.activitysoft.api import get_students_from_api, post_accessos_concurrently
-from topsoft.constants import OFFSET_PATH
+from topsoft.constants import DB_BATCH_SIZE, FILE_READ_CHUNK_SIZE, OFFSET_PATH
 from topsoft.models import Acesso, Aluno
 from topsoft.repository import bulk_process_turnstile_events, process_turnstile_event
 from topsoft.settings import get_interval
@@ -281,7 +281,7 @@ async def post_acessos_and_update_synced_status(acessos):
         raise
 
 
-def read_bilhetes_fast(filepath, stop_event, chunk_size=10000):
+def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
     """
     Fast file reader that only reads new lines and returns raw events without DB operations.
     This function is optimized for speed and minimal file locking.
@@ -291,8 +291,14 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=10000):
         filepath: Path to the bilhetes file
         stop_event: Event to signal stopping
         chunk_size: Number of lines to process before yielding control (for memory efficiency)
+                   If None, uses FILE_READ_CHUNK_SIZE from environment/config
     """
-    logger.debug(f"Fast reading bilhetes from file: {filepath}")
+    if chunk_size is None:
+        chunk_size = FILE_READ_CHUNK_SIZE
+
+    logger.debug(
+        f"Fast reading bilhetes from file: {filepath} (chunk_size={chunk_size})"
+    )
 
     events = []
     line_count = 0
@@ -370,13 +376,23 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=10000):
     return events
 
 
-def process_events_to_database(events, stop_event, batch_size=5000):
+def process_events_to_database(events, stop_event, batch_size=None):
     """
     Process raw events into the database with batch processing.
     This function handles all database operations.
-    Increased batch size from 1000 to 5000 for better performance with large files.
+
+    Args:
+        events: List of raw events to process
+        stop_event: Event to signal stopping
+        batch_size: Number of events to process per batch
+                   If None, uses DB_BATCH_SIZE from environment/config
     """
-    logger.info(f"Processing {len(events)} events into database")
+    if batch_size is None:
+        batch_size = DB_BATCH_SIZE
+
+    logger.info(
+        f"Processing {len(events)} events into database (batch_size={batch_size})"
+    )
 
     if not events:
         return []

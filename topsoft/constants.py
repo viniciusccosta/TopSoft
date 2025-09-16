@@ -17,3 +17,7 @@ OFFSET_PATH = config("OFFSET_PATH", default="./bilhetes.offset")
 
 MAX_AT_ONCE = config("MAX_AT_ONCE", default=1000, cast=int)
 MAX_PER_SECOND = config("MAX_PER_SECOND", default=5, cast=int)
+
+# Performance tuning parameters
+FILE_READ_CHUNK_SIZE = config("FILE_READ_CHUNK_SIZE", default=10000, cast=int)
+DB_BATCH_SIZE = config("DB_BATCH_SIZE", default=5000, cast=int)
