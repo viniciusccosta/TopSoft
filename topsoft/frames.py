@@ -32,13 +32,24 @@ logger = logging.getLogger(__name__)
 class StudentSelectionDialog:
     """
     Enhanced dialog for selecting a student with search functionality and table view.
+    Can also be used for creating new access cards.
     """
 
-    def __init__(self, parent, cartao_numeracao, current_aluno_info, callback):
+    def __init__(
+        self,
+        parent,
+        cartao_numeracao=None,
+        current_aluno_info=None,
+        callback=None,
+        mode="bind",
+    ):
         self.parent = parent
         self.cartao_numeracao = cartao_numeracao
         self.current_aluno_info = current_aluno_info
         self.callback = callback
+        self.mode = (
+            mode  # "bind" for existing card binding, "create" for new card creation
+        )
         self.selected_aluno = None
         self.all_alunos = []
         self.filtered_alunos = []
@@ -49,23 +60,40 @@ class StudentSelectionDialog:
 
     def _create_dialog(self):
         """Create the dialog window and widgets."""
+        if self.mode == "create":
+            title = "Criar Novo Cartão de Acesso"
+            dialog_height = 950
+        else:
+            title = "Selecionar Aluno para Vinculação"
+            dialog_height = 900
+
         self.dialog = ttk.Toplevel(self.parent)
-        self.dialog.title("Selecionar Aluno para Vinculação")
-        self.dialog.geometry("700x900")
+        self.dialog.title(title)
+        # self.dialog.geometry(f"700x{dialog_height}")
         self.dialog.transient(self.parent)
         self.dialog.grab_set()  # Make it modal
-
-        # # Center the dialog
-        # self.dialog.update_idletasks()
-        # x = (self.dialog.winfo_screenwidth() // 2) - (700 // 2)
-        # y = (self.dialog.winfo_screenheight() // 2) - (900 // 2)
-        # self.dialog.geometry(f"700x900+{x}+{y}")
 
         # Main container
         main_frame = ttk.Frame(self.dialog)
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
-        # Header
+        # Create appropriate header based on mode
+        if self.mode == "create":
+            self._create_new_card_header(main_frame)
+        else:
+            self._create_binding_header(main_frame)
+
+        # Common components
+        self._create_search_section(main_frame)
+        self._create_table_section(main_frame)
+        self._create_button_section(main_frame)
+
+        # Keyboard shortcuts
+        self.dialog.bind("<Escape>", lambda e: self._cancel())
+        self.dialog.bind("<Control-f>", lambda e: self.search_entry.focus())
+
+    def _create_binding_header(self, main_frame):
+        """Create header for binding mode."""
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill="x", pady=(0, 20))
 
@@ -104,6 +132,100 @@ class StudentSelectionDialog:
             foreground="gray",
         ).pack(anchor="w", padx=(10, 0))
 
+    def _create_new_card_header(self, main_frame):
+        """Create header for new card creation mode."""
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            header_frame,
+            text="🆕 Criar Novo Cartão de Acesso",
+            font=("Arial", 14, "bold"),
+            foreground="green",
+        ).pack(anchor="w")
+
+        # Card number input
+        card_input_frame = ttk.LabelFrame(
+            header_frame, text="Número do Cartão", padding=10
+        )
+        card_input_frame.pack(fill="x", pady=(10, 0))
+
+        input_frame = ttk.Frame(card_input_frame)
+        input_frame.pack(fill="x")
+
+        ttk.Label(input_frame, text="Digite o número do cartão:").pack(anchor="w")
+
+        ttk.Label(
+            input_frame,
+            text="💡 Formato aceito: até 16 dígitos (zeros à esquerda serão adicionados automaticamente)",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w")
+
+        entry_frame = ttk.Frame(input_frame)
+        entry_frame.pack(fill="x", pady=(5, 0))
+
+        self.card_number_var = ttk.StringVar()
+        self.card_number_entry = ttk.Entry(
+            entry_frame,
+            textvariable=self.card_number_var,
+            font=("Arial", 12),
+            bootstyle="success",
+            width=20,
+        )
+        self.card_number_entry.pack(side="left")
+        self.card_number_entry.focus()  # Focus on card number entry
+        self.card_number_entry.bind("<Return>", lambda e: self._validate_card_number())
+
+        # Validation button
+        self.validate_button = ttk.Button(
+            entry_frame,
+            text="✓ Validar",
+            command=self._validate_card_number,
+            bootstyle="info-outline",
+        )
+        self.validate_button.pack(side="left", padx=(10, 0))
+
+        # Status label
+        self.card_status_label = ttk.Label(
+            input_frame,
+            text="Digite o número do cartão e clique em 'Validar'",
+            font=("Arial", 9),
+            foreground="gray",
+        )
+        self.card_status_label.pack(anchor="w", pady=(5, 0))
+
+        # Instructions
+        instructions_frame = ttk.Frame(header_frame)
+        instructions_frame.pack(fill="x", pady=(10, 0))
+
+        ttk.Label(
+            instructions_frame, text="📋 Instruções:", font=("Arial", 9, "bold")
+        ).pack(anchor="w")
+
+        ttk.Label(
+            instructions_frame,
+            text="1. Digite o número do cartão e valide",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w", padx=(10, 0))
+
+        ttk.Label(
+            instructions_frame,
+            text="2. Busque e selecione um aluno para vincular (opcional)",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w", padx=(10, 0))
+
+        ttk.Label(
+            instructions_frame,
+            text="3. Clique em 'Criar Cartão' (pode criar sem vinculação)",
+            font=("Arial", 8),
+            foreground="gray",
+        ).pack(anchor="w", padx=(10, 0))
+
+    def _create_search_section(self, main_frame):
+        """Create the search section."""
         # Search frame
         search_frame = ttk.LabelFrame(main_frame, text="Buscar Aluno", padding=10)
         search_frame.pack(fill="x", pady=(0, 10))
@@ -117,9 +239,13 @@ class StudentSelectionDialog:
         )
 
         # Tips label
+        tip_text = "💡 Dica: Digite algumas letras do nome ou a matrícula completa"
+        if self.mode == "create":
+            tip_text += " (opcional - pode criar cartão sem vinculação)"
+
         ttk.Label(
             search_entry_frame,
-            text="💡 Dica: Digite algumas letras do nome ou a matrícula completa",
+            text=tip_text,
             font=("Arial", 8),
             foreground="gray",
         ).pack(anchor="w")
@@ -138,7 +264,10 @@ class StudentSelectionDialog:
             bootstyle="info",
         )
         self.search_entry.pack(side="left", fill="x", expand=True)
-        self.search_entry.focus()  # Focus on search entry
+
+        # Focus on search entry only if not in create mode
+        if self.mode != "create":
+            self.search_entry.focus()
 
         # Search info label
         search_info = ttk.Label(search_input_frame, text=" 🔍", font=("Arial", 12))
@@ -160,6 +289,8 @@ class StudentSelectionDialog:
         )
         self.results_label.pack(side="right")
 
+    def _create_table_section(self, main_frame):
+        """Create the table section."""
         # Table frame
         table_frame = ttk.LabelFrame(main_frame, text="Alunos Encontrados", padding=10)
         table_frame.pack(expand=True, fill="both", pady=(0, 10))
@@ -187,40 +318,51 @@ class StudentSelectionDialog:
         self.table.view.bind("<Double-1>", self._on_table_double_click)
         self.table.view.bind("<Return>", self._on_table_enter)
 
+    def _create_button_section(self, main_frame):
+        """Create the button section based on mode."""
         # Button frame
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill="x", pady=(10, 0))
 
-        # Buttons
+        # Cancel button (always present)
         ttk.Button(
             button_frame, text="Cancelar", command=self._cancel, bootstyle="secondary"
         ).pack(side="left")
 
-        # Make remove binding more prominent if there's a current binding
-        remove_text = "🗑️ Remover Vinculação"
-        if "Não vinculado" not in self.current_aluno_info:
-            remove_bootstyle = "warning"
+        if self.mode == "create":
+            # Create card mode buttons
+            ttk.Button(
+                button_frame,
+                text="🆕 Criar Cartão",
+                command=self._create_new_card,
+                bootstyle="success",
+            ).pack(side="right")
         else:
-            remove_text = "Remover Vinculação (Já removido)"
-            remove_bootstyle = "secondary"
+            # Binding mode buttons
+            # Make remove binding more prominent if there's a current binding
+            remove_text = "🗑️ Remover Vinculação"
+            if (
+                self.current_aluno_info
+                and "Não vinculado" not in self.current_aluno_info
+            ):
+                remove_bootstyle = "warning"
+            else:
+                remove_text = "Remover Vinculação (Já removido)"
+                remove_bootstyle = "secondary"
 
-        ttk.Button(
-            button_frame,
-            text=remove_text,
-            command=self._remove_binding,
-            bootstyle=remove_bootstyle,
-        ).pack(side="left", padx=(10, 0))
+            ttk.Button(
+                button_frame,
+                text=remove_text,
+                command=self._remove_binding,
+                bootstyle=remove_bootstyle,
+            ).pack(side="left", padx=(10, 0))
 
-        ttk.Button(
-            button_frame,
-            text="✅ Selecionar Aluno",
-            command=self._select_student,
-            bootstyle="success",
-        ).pack(side="right")
-
-        # Keyboard shortcuts
-        self.dialog.bind("<Escape>", lambda e: self._cancel())
-        self.dialog.bind("<Control-f>", lambda e: self.search_entry.focus())
+            ttk.Button(
+                button_frame,
+                text="✅ Selecionar Aluno",
+                command=self._select_student,
+                bootstyle="success",
+            ).pack(side="right")
 
     def _load_students(self):
         """Load all students in a background thread."""
@@ -407,6 +549,120 @@ class StudentSelectionDialog:
                     f"Erro ao vincular cartão: {e}", "Erro na Vinculação"
                 )
 
+    def _validate_card_number(self):
+        """Validate the card number for new card creation."""
+        card_number = self.card_number_var.get().strip()
+
+        if not card_number:
+            self.card_status_label.config(
+                text="❌ Digite um número de cartão", foreground="red"
+            )
+            return False
+
+        # Check if it's numeric
+        if not card_number.isdigit():
+            self.card_status_label.config(
+                text="❌ O número deve conter apenas dígitos", foreground="red"
+            )
+            return False
+
+        # Check length (allow up to 16 digits)
+        if len(card_number) > 16:
+            self.card_status_label.config(
+                text="❌ Número muito longo (máximo 16 dígitos)", foreground="red"
+            )
+            return False
+
+        # Format with leading zeros
+        formatted_number = card_number.zfill(16)
+        self.card_number_var.set(formatted_number)
+
+        # Check if card already exists
+        try:
+            existing_card = CartaoAcesso.find_by_numeracao(formatted_number)
+            if existing_card:
+                aluno_info = (
+                    f" (vinculado a {existing_card.aluno.nome})"
+                    if existing_card.aluno
+                    else " (não vinculado)"
+                )
+                self.card_status_label.config(
+                    text=f"❌ Cartão {formatted_number} já existe{aluno_info}",
+                    foreground="red",
+                )
+                return False
+            else:
+                self.card_status_label.config(
+                    text=f"✅ Cartão {formatted_number} disponível para criação",
+                    foreground="green",
+                )
+                return True
+        except Exception as e:
+            logger.error(f"Error validating card number: {e}")
+            self.card_status_label.config(
+                text="❌ Erro ao validar número do cartão", foreground="red"
+            )
+            return False
+
+    def _create_new_card(self):
+        """Create a new access card with optional student binding."""
+        # Validate card number first
+        if not self._validate_card_number():
+            Messagebox.show_warning(
+                "Por favor, digite um número de cartão válido e clique em 'Validar'.",
+                "Número Inválido",
+            )
+            return
+
+        card_number = self.card_number_var.get().strip()
+        selected_aluno = self._get_selected_student()
+
+        # Prepare confirmation message
+        if selected_aluno:
+            message = (
+                f"Criar novo cartão de acesso:\n\n"
+                f"Número: {card_number}\n"
+                f"Vincular ao aluno: {selected_aluno.nome} ({selected_aluno.matricula})\n\n"
+                f"Confirma a criação?"
+            )
+        else:
+            message = (
+                f"Criar novo cartão de acesso:\n\n"
+                f"Número: {card_number}\n"
+                f"⚠️ Cartão será criado SEM vinculação com aluno\n\n"
+                f"Confirma a criação?"
+            )
+
+        result = Messagebox.show_question(message, "Confirmar Criação")
+
+        if result == "Yes":
+            try:
+                # Create the card
+                new_card = CartaoAcesso.create(numeracao=card_number)
+
+                # Bind to student if selected
+                if selected_aluno:
+                    new_card.assign_to_aluno(selected_aluno.id)
+                    success_message = f"Cartão {card_number} criado e vinculado com sucesso ao aluno {selected_aluno.nome}!"
+                else:
+                    success_message = (
+                        f"Cartão {card_number} criado com sucesso! (Sem vinculação)"
+                    )
+
+                Messagebox.show_info(success_message, "Cartão Criado")
+                logger.info(
+                    f"New card created: {card_number}, bound to: {selected_aluno.matricula if selected_aluno else 'None'}"
+                )
+
+                # Refresh parent table and close dialog
+                if self.callback:
+                    self.callback()
+                self._close_dialog()
+
+            except Exception as e:
+                logger.error(f"Error creating new card: {e}")
+                Messagebox.show_error(f"Erro ao criar cartão: {e}", "Erro na Criação")
+
     def _remove_binding(self):
         """
         Remove the current binding between the card and student.
@@ -505,6 +761,15 @@ class CartoesAcessoFrame(Frame):
             command=lambda: self.export_cartoes_acesso(),
         )
         self.export_button.pack(expand=False, padx=(5, 0), pady=0, side="left")
+
+        # New card button (on the right)
+        self.new_card_button = ttk.Button(
+            button_frame,
+            text="🆕 Novo Cartão",
+            command=self.open_new_card_window,
+            bootstyle="success",
+        )
+        self.new_card_button.pack(expand=False, padx=(10, 0), pady=0, side="right")
 
         # Define table columns
         cols = [
@@ -616,7 +881,19 @@ class CartoesAcessoFrame(Frame):
         """
         Opens a new window to edit the binding of a CartaoAcesso to an Aluno.
         """
-        StudentSelectionDialog(self, cartao_numeracao, aluno_info, self.populate_table)
+        StudentSelectionDialog(
+            parent=self,
+            cartao_numeracao=cartao_numeracao,
+            current_aluno_info=aluno_info,
+            callback=self.populate_table,
+            mode="bind",
+        )
+
+    def open_new_card_window(self):
+        """
+        Opens a new window to create a new CartaoAcesso.
+        """
+        StudentSelectionDialog(parent=self, callback=self.populate_table, mode="create")
 
     def export_cartoes_acesso(self):
         """
