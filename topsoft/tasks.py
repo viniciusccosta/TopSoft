@@ -42,7 +42,7 @@ def task_file_reader(stop_event, queue):
                         ),
                     )
                 )
-                wait_for_interval(stop_event)
+                wait_for_interval(stop_event, "file reader task")
                 continue
 
             # Fast file reading without database operations
@@ -84,7 +84,7 @@ def task_file_reader(stop_event, queue):
             logger.exception(e)
             queue.put(("TASK_STATUS", ("file_reader", "error", f"Erro: {str(e)}")))
         finally:
-            wait_for_interval(stop_event)
+            wait_for_interval(stop_event, "file reader task")
 
 
 # Task 2: Process queued events into database
@@ -274,4 +274,4 @@ def task_db_sync(stop_event, queue):
             logger.exception(e)
             queue.put(("TASK_STATUS", ("db_sync", "error", f"Erro: {str(e)}")))
         finally:
-            wait_for_interval(stop_event)
+            wait_for_interval(stop_event, "DB sync task")

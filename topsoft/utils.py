@@ -153,12 +153,13 @@ def ingest_bilhetes(
     return all_tickets
 
 
-def wait_for_interval(stop_event):
+def wait_for_interval(stop_event, task_name="background task"):
     """
     Wait for the specified interval before the next processing cycle.
 
     Parameters:
     - stop_event (threading.Event): An event to signal when to stop waiting.
+    - task_name (str): Name of the task for logging purposes.
 
     Returns:
     - None
@@ -168,10 +169,10 @@ def wait_for_interval(stop_event):
 
     for i in range(intervalo):
         if stop_event.is_set():
-            logger.info("Stopping background task")
+            logger.info(f"Stopping {task_name}")
             return
 
-        logger.debug(f"Next processing in {intervalo - i} seconds")
+        logger.debug(f"{task_name}: Next processing in {intervalo - i} seconds")
         sleep(1)
 
 
