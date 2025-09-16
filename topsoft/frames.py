@@ -2,7 +2,7 @@ import logging
 import threading
 from datetime import datetime
 from time import sleep
-from tkinter import Frame, filedialog
+from tkinter import Frame, Menu, filedialog
 
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox
@@ -62,10 +62,8 @@ class StudentSelectionDialog:
         """Create the dialog window and widgets."""
         if self.mode == "create":
             title = "Criar Novo Cartão de Acesso"
-            dialog_height = 950
         else:
             title = "Selecionar Aluno para Vinculação"
-            dialog_height = 900
 
         self.dialog = ttk.Toplevel(self.parent)
         self.dialog.title(title)
@@ -749,27 +747,40 @@ class CartoesAcessoFrame(Frame):
         # Import button (on the left)
         self.import_button = ttk.Button(
             button_frame,
-            text="Importar Cartões",
+            text="⬇ Importar",
             command=lambda: self.import_cartoes_acesso(),
+            width=12,
         )
         self.import_button.pack(expand=False, padx=(0, 5), pady=0, side="left")
 
         # Export button (on the right of import button)
         self.export_button = ttk.Button(
             button_frame,
-            text="Exportar Cartões",
+            text="⬆ Exportar",
             command=lambda: self.export_cartoes_acesso(),
+            width=12,
         )
         self.export_button.pack(expand=False, padx=(5, 0), pady=0, side="left")
 
         # New card button (on the right)
         self.new_card_button = ttk.Button(
             button_frame,
-            text="🆕 Novo Cartão",
+            text="➕ Novo",
             command=self.open_new_card_window,
             bootstyle="success",
+            width=10,
         )
         self.new_card_button.pack(expand=False, padx=(10, 0), pady=0, side="right")
+
+        # Delete card button (on the right, next to new card)
+        self.delete_card_button = ttk.Button(
+            button_frame,
+            text="🗑 Excluir",
+            command=self.delete_selected_card,
+            bootstyle="danger",
+            width=10,
+        )
+        self.delete_card_button.pack(expand=False, padx=(10, 0), pady=0, side="right")
 
         # Define table columns
         cols = [
@@ -802,6 +813,13 @@ class CartoesAcessoFrame(Frame):
         v_scrollbar.pack(side="right", fill="y")
 
         self.table.view.bind("<Double-1>", self.handle_row_double_click)
+
+        # Add context menu (right-click)
+        self._create_context_menu()
+        self.table.view.bind("<Button-3>", self.show_context_menu)  # Right-click
+
+        # Add keyboard shortcuts
+        self.table.view.bind("<Delete>", self.delete_selected_card_key)  # Delete key
 
         # Align headings to the center
         for cid in self.table.cidmap:
@@ -894,6 +912,122 @@ class CartoesAcessoFrame(Frame):
         Opens a new window to create a new CartaoAcesso.
         """
         StudentSelectionDialog(parent=self, callback=self.populate_table, mode="create")
+
+    def _create_context_menu(self):
+        """Create context menu for table rows."""
+        self.context_menu = ttk.Menu(self, tearoff=0)
+        self.context_menu.add_command(
+            label="✏️ Editar Vinculação", command=self.edit_selected_card
+        )
+        self.context_menu.add_separator()
+        self.context_menu.add_command(
+            label="🗑️ Excluir Cartão", command=self.delete_selected_card
+        )
+
+    def show_context_menu(self, event):
+        """Show context menu on right-click."""
+        # Select the row under cursor
+        item = self.table.view.identify_row(event.y)
+        if item:
+            self.table.view.selection_set(item)
+            self.table.view.focus(item)
+
+            # Show context menu
+            try:
+                self.context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self.context_menu.grab_release()
+
+    def edit_selected_card(self):
+        """Edit the selected card (same as double-click)."""
+        selected_rows = self.table.get_rows(selected=True)
+        if not selected_rows:
+            Messagebox.show_warning(
+                "Por favor, selecione um cartão da lista.", "Nenhum Cartão Selecionado"
+            )
+            return
+
+        # Get the selected row data
+        row_data = selected_rows[0].values
+        cartao_numeracao = row_data[0]
+        aluno_info = row_data[1]
+
+        # Open edit window
+        self.open_edit_window(cartao_numeracao, aluno_info)
+
+    def delete_selected_card_key(self, event):
+        """Handle Delete key press."""
+        self.delete_selected_card()
+
+    def delete_selected_card(self):
+        """Delete the selected card after validation."""
+        selected_rows = self.table.get_rows(selected=True)
+        if not selected_rows:
+            Messagebox.show_warning(
+                "Por favor, selecione um cartão da lista.", "Nenhum Cartão Selecionado"
+            )
+            return
+
+        # Get the selected card
+        row_data = selected_rows[0].values
+        cartao_numeracao = row_data[0]
+        aluno_info = row_data[1]
+
+        try:
+            # Find the card in database
+            cartao = CartaoAcesso.find_by_numeracao(cartao_numeracao)
+            if not cartao:
+                Messagebox.show_error(
+                    f"Cartão {cartao_numeracao} não encontrado no banco de dados.",
+                    "Cartão Não Encontrado",
+                )
+                return
+
+            # Check if card can be deleted
+            can_delete, reason = cartao.can_be_deleted()
+
+            if not can_delete:
+                Messagebox.show_warning(
+                    f"Não é possível excluir o cartão {cartao_numeracao}:\n\n{reason}\n\n"
+                    "💡 Dica: Só é possível excluir cartões que não possuem registros de acesso.",
+                    "Cartão Não Pode Ser Excluído",
+                )
+                return
+
+            # Show confirmation dialog with details
+            binding_info = (
+                f"\nVinculação atual: {aluno_info}"
+                if "Não vinculado" not in aluno_info
+                else "\nCartão não vinculado"
+            )
+
+            result = Messagebox.show_question(
+                f"⚠️ ATENÇÃO: Esta ação é irreversível!\n\n"
+                f"Excluir o cartão {cartao_numeracao}?{binding_info}\n\n"
+                f"✅ {reason}\n\n"
+                f"Confirma a exclusão?",
+                "Confirmar Exclusão",
+            )
+
+            if result == "Yes":
+                # Delete the card
+                success, message = cartao.delete_card()
+
+                if success:
+                    Messagebox.show_info(message, "Cartão Excluído")
+                    logger.info(f"Card deleted: {cartao_numeracao}")
+
+                    # Refresh the table
+                    self.populate_table()
+                else:
+                    Messagebox.show_error(message, "Erro na Exclusão")
+                    logger.error(f"Failed to delete card {cartao_numeracao}: {message}")
+
+        except Exception as e:
+            logger.error(f"Error deleting card {cartao_numeracao}: {e}")
+            Messagebox.show_error(
+                f"Erro inesperado ao excluir cartão:\n{str(e)}", "Erro na Exclusão"
+            )
 
     def export_cartoes_acesso(self):
         """

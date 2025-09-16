@@ -369,6 +369,41 @@ class CartaoAcesso(BaseModel, table=True):
         """Unassign this card from any student"""
         return self.update(aluno_id=None)
 
+    def can_be_deleted(self) -> tuple[bool, str]:
+        """
+        Check if this card can be safely deleted.
+        Returns (can_delete: bool, reason: str)
+        """
+        # Check if card has any access records
+        if self.acessos:
+            return False, f"Cartão possui {len(self.acessos)} registro(s) de acesso"
+
+        # If no access records, it can be deleted
+        return True, "Cartão pode ser excluído com segurança"
+
+    def delete_card(self) -> tuple[bool, str]:
+        """
+        Delete this card if it's safe to do so.
+        Returns (success: bool, message: str)
+        """
+        can_delete, reason = self.can_be_deleted()
+
+        if not can_delete:
+            return False, reason
+
+        try:
+            # Unassign from student first if assigned
+            if self.aluno_id:
+                self.unassign()
+
+            # Delete the card
+            self.delete()
+            return True, f"Cartão {self.numeracao} excluído com sucesso"
+
+        except Exception as e:
+            logger.error(f"Error deleting card {self.numeracao}: {e}")
+            return False, f"Erro ao excluir cartão: {str(e)}"
+
     @classmethod
     def get_or_create(cls, defaults=None, **kwargs) -> tuple["CartaoAcesso", bool]:
         """Enhanced get_or_create that handles CartaoAcesso-specific logic"""
