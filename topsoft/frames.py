@@ -512,18 +512,29 @@ class CartoesAcessoFrame(Frame):
             {"text": "Aluno (Nome/Matrícula)", "stretch": True},
         ]
 
+        # Create table container with scrollbar
+        table_container = ttk.Frame(self)
+        table_container.pack(expand=True, fill="both", padx=10, pady=10)
+
         # Create the table
         self.table = Tableview(
-            self,
+            table_container,
             coldata=cols,
             paginated=False,
             searchable=True,
             autofit=True,
             autoalign=False,
-            # yscrollbar=True,
         )
-        self.table.pack(expand=True, fill="both", padx=10, pady=10)
-        # TODO: Where is the vertical scrollbar ?
+
+        # Create vertical scrollbar
+        v_scrollbar = ttk.Scrollbar(
+            table_container, orient="vertical", command=self.table.view.yview
+        )
+        self.table.view.configure(yscrollcommand=v_scrollbar.set)
+
+        # Pack table and scrollbar
+        self.table.pack(side="left", expand=True, fill="both")
+        v_scrollbar.pack(side="right", fill="y")
 
         self.table.view.bind("<Double-1>", self.handle_row_double_click)
 
