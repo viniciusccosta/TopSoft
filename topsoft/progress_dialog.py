@@ -37,7 +37,7 @@ class ProgressDialog:
         title: str = "Processando...",
         allow_cancel: bool = True,
         width: int = 400,
-        height: int = 150,
+        height: int = 190,
     ):
         self.parent = parent
         self.title = title
@@ -88,7 +88,7 @@ class ProgressDialog:
             variable=self.progress_var,
             mode="determinate",
             length=350,
-            height=20,
+            # height=20,
         )
         self.progress_bar.pack(pady=(0, 10))
 
