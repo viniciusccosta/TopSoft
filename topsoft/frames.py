@@ -15,7 +15,12 @@ from topsoft.progress_dialog import show_progress_dialog
 from topsoft.repository import (
     bind_matricula_to_cartao_acesso_v2 as bind_matricula_to_cartao_acesso,
 )
-from topsoft.secrets import get_api_key, set_api_key
+from topsoft.secrets import (
+    get_api_key,
+    get_telegram_api_key,
+    set_api_key,
+    set_telegram_api_key,
+)
 from topsoft.settings import (
     get_bilhetes_path,
     get_cutoff,
@@ -1513,6 +1518,39 @@ class ConfigurationFrame(Frame):
         )
         self.cb_edit_api.pack(expand=False, padx=10, pady=10, side="left")
 
+        # Telegram Bot API Key
+        self.telegram_api_key = ttk.StringVar()
+        if telegram_api_key := get_telegram_api_key():
+            self.telegram_api_key.set(telegram_api_key)
+        else:
+            self.telegram_api_key.set("")
+
+        self.lf_telegram = ttk.LabelFrame(self, text="Telegram Bot API Key")
+        self.lf_telegram.pack(expand=False, fill="x", padx=10, pady=10)
+
+        self.entry_telegram_api = ttk.Entry(
+            self.lf_telegram,
+            textvariable=self.telegram_api_key,
+            show="*",
+            state="readonly",
+        )
+        self.entry_telegram_api.pack(
+            expand=True, fill="x", padx=10, pady=10, side="left"
+        )
+
+        self.change_telegram_api = ttk.StringVar()
+        self.change_telegram_api.set("")
+
+        self.cb_edit_telegram_api = ttk.Checkbutton(
+            self.lf_telegram,
+            text="Editar",
+            variable=self.change_telegram_api,
+            onvalue="1",
+            offvalue="0",
+            command=lambda: self.enable_telegram_entry_api(),
+        )
+        self.cb_edit_telegram_api.pack(expand=False, padx=10, pady=10, side="left")
+
         # Database Backup/Restore Section
         self.lf_database = ttk.LabelFrame(
             self, text="Backup e Restauração do Banco de Dados"
@@ -1613,12 +1651,25 @@ class ConfigurationFrame(Frame):
             self.entry_api.config(state="readonly")
             self.api_key.set(get_api_key())
 
+    def enable_telegram_entry_api(self):
+        """
+        Enables the entry field for the Telegram Bot API key.
+        """
+
+        if self.change_telegram_api.get() == "1":
+            self.entry_telegram_api.config(state="normal")
+            self.telegram_api_key.set("")
+        else:
+            self.entry_telegram_api.config(state="readonly")
+            self.telegram_api_key.set(get_telegram_api_key())
+
     def save_config(self):
         """
         Saves the configuration settings.
         """
         bilhete_path = self.bilhetes_path.get()
         activitysoft_key = self.entry_api.get()
+        telegram_key = self.telegram_api_key.get()
         intervalo = self.intervalo.get()
         cutoff = self.cutoff.get()
 
@@ -1626,6 +1677,7 @@ class ConfigurationFrame(Frame):
         set_bilhetes_path(bilhete_path)
         set_interval(intervalo)
         set_api_key(activitysoft_key)
+        set_telegram_api_key(telegram_key)
         set_cutoff(cutoff)
 
         # Update the settings in the controller
@@ -2170,6 +2222,11 @@ class TaskMonitorFrame(Frame):
         )
 
     def _update_single_task(self, task_id, status):
+        """Legacy method kept for compatibility."""
+        # This method is no longer used with the new polling system
+        pass
+        # This method is no longer used with the new polling system
+        pass
         """Legacy method kept for compatibility."""
         # This method is no longer used with the new polling system
         pass
