@@ -341,28 +341,3 @@ class DatabaseSyncTask(BaseTask):
 
         logger.info("DB sync task stopping")
         self.update_state(TaskState.STOPPED, "Tarefa finalizada")
-
-
-# Legacy function wrappers for backward compatibility
-def task_file_reader(stop_event, queue, task_instance=None):
-    """Legacy function wrapper - creates and runs FileReaderTask"""
-    if task_instance is None:
-        task_instance = FileReaderTask()
-    task_instance.start(stop_event, queue)
-    return task_instance
-
-
-def task_db_processor(stop_event, queue, task_instance=None):
-    """Legacy function wrapper - creates and runs DatabaseProcessorTask"""
-    if task_instance is None:
-        task_instance = DatabaseProcessorTask()
-    task_instance.start(stop_event, queue)
-    return task_instance
-
-
-def task_db_sync(stop_event, queue, task_instance=None):
-    """Legacy function wrapper - creates and runs DatabaseSyncTask"""
-    if task_instance is None:
-        task_instance = DatabaseSyncTask()
-    task_instance.start(stop_event, queue)
-    return task_instance
