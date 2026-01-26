@@ -56,9 +56,7 @@ class BaseTask:
         self.queue = None
         self.thread = None
 
-    def update_state(
-        self, state: TaskState, details: str = "", update_time: bool = True
-    ):
+    def update_state(self, state: TaskState, details: str = "", update_time: bool = True):
         """Update task state in a thread-safe manner."""
         with self._lock:
             self.state = state
@@ -136,9 +134,7 @@ class FileReaderTask(BaseTask):
                 self.check_cancellation(0.05)
 
                 if new_events:
-                    logger.info(
-                        f"Found {len(new_events)} new events, queueing for processing"
-                    )
+                    logger.info(f"Found {len(new_events)} new events, queueing for processing")
                     self.queue.put(("PROCESS_EVENTS", new_events))
                     self.update_state(
                         TaskState.SUCCESS,
@@ -146,9 +142,7 @@ class FileReaderTask(BaseTask):
                     )
                     self.failure_count = 0
                 else:
-                    self.update_state(
-                        TaskState.SUCCESS, "Nenhum novo evento encontrado"
-                    )
+                    self.update_state(TaskState.SUCCESS, "Nenhum novo evento encontrado")
                     self.failure_count = 0
 
             except InterruptedError:
@@ -157,16 +151,12 @@ class FileReaderTask(BaseTask):
                 break
             except Exception as e:
                 self.failure_count += 1
-                logger.warning(
-                    f"Error in file reader task (failure #{self.failure_count}): {e}"
-                )
+                logger.warning(f"Error in file reader task (failure #{self.failure_count}): {e}")
                 if self.failure_count <= 3:
                     logger.exception(e)
                 self.set_error(f"{str(e)} (tentativa {self.failure_count})")
             finally:
-                wait_for_interval_with_backoff(
-                    self.stop_event, "file reader task", self.failure_count
-                )
+                wait_for_interval_with_backoff(self.stop_event, "file reader task", self.failure_count)
 
         logger.info("File reader task stopping")
         self.update_state(TaskState.STOPPED, "Tarefa finalizada")
@@ -189,12 +179,8 @@ class DatabaseProcessorTask(BaseTask):
         logger.info(f"Starting {self.name}")
         self.failure_count = 0
 
-        self.update_state(
-            TaskState.STARTING, "Iniciando processador de banco de dados..."
-        )
-        self.update_state(
-            TaskState.WAITING, "Aguardando novos eventos para processar..."
-        )
+        self.update_state(TaskState.STARTING, "Iniciando processador de banco de dados...")
+        self.update_state(TaskState.WAITING, "Aguardando novos eventos para processar...")
 
         while not self.stop_event.is_set():
             try:
@@ -210,18 +196,12 @@ class DatabaseProcessorTask(BaseTask):
 
                         try:
                             self.check_cancellation(0.05)
-                            processed_records = process_events_to_database(
-                                data, self.stop_event
-                            )
+                            processed_records = process_events_to_database(data, self.stop_event)
                             self.check_cancellation(0.05)
 
                             if processed_records:
-                                logger.info(
-                                    f"Successfully processed {len(processed_records)} records into database"
-                                )
-                                self.queue.put(
-                                    ("DATA_PROCESSED", len(processed_records))
-                                )
+                                logger.info(f"Successfully processed {len(processed_records)} records into database")
+                                self.queue.put(("DATA_PROCESSED", len(processed_records)))
                                 self.update_state(
                                     TaskState.SUCCESS,
                                     f"Processados {len(processed_records)} registros. Aguardando novos eventos...",
@@ -240,9 +220,7 @@ class DatabaseProcessorTask(BaseTask):
 
                         except InterruptedError:
                             logger.info("Database processor task cancelled")
-                            self.update_state(
-                                TaskState.CANCELLED, "Processamento cancelado"
-                            )
+                            self.update_state(TaskState.CANCELLED, "Processamento cancelado")
                             break
 
                 except Empty:
@@ -272,9 +250,7 @@ class DatabaseSyncTask(BaseTask):
     """
 
     def __init__(self):
-        super().__init__(
-            "db_sync", "🔄 Sincronização API", "Sincroniza registros com ActivitySoft"
-        )
+        super().__init__("db_sync", "🔄 Sincronização API", "Sincroniza registros com ActivitySoft")
 
     def run(self):
         logger.info(f"Starting {self.name}")
@@ -287,14 +263,10 @@ class DatabaseSyncTask(BaseTask):
                 self.check_cancellation(0.05)
                 logger.debug("DB sync task cycle starting")
 
-                self.update_state(
-                    TaskState.STARTING, "Iniciando ciclo de sincronização..."
-                )
+                self.update_state(TaskState.STARTING, "Iniciando ciclo de sincronização...")
 
                 logger.debug("Fetching and syncing students")
-                self.update_state(
-                    TaskState.RUNNING, "Sincronizando dados de estudantes..."
-                )
+                self.update_state(TaskState.RUNNING, "Sincronizando dados de estudantes...")
 
                 try:
                     fetch_and_sync_students()
@@ -304,55 +276,39 @@ class DatabaseSyncTask(BaseTask):
                 self.check_cancellation(0.05)
 
                 logger.debug("Fetching not synced access records")
-                self.update_state(
-                    TaskState.RUNNING, "Buscando registros não sincronizados..."
-                )
+                self.update_state(TaskState.RUNNING, "Buscando registros não sincronizados...")
 
                 cutoff = datetime.strptime(get_cutoff(), "%d/%m/%Y").date()
                 acessos = Acesso.get_unsynced(cutoff_date=cutoff)
-                logger.info(
-                    f"Found {len(acessos)} unsynced access records after cutoff date {cutoff}"
-                )
+                logger.info(f"Found {len(acessos)} unsynced access records after cutoff date {cutoff}")
 
                 if acessos:
                     self.check_cancellation(0.05)
 
-                    logger.debug(
-                        "Posting access records to API and updating synced status"
-                    )
+                    logger.debug("Posting access records to API and updating synced status")
                     self.update_state(
                         TaskState.RUNNING,
                         f"Enviando {len(acessos)} registros para API...",
                     )
 
                     try:
-                        results = asyncio.run(
-                            post_acessos_and_update_synced_status(acessos)
-                        )
+                        results = asyncio.run(post_acessos_and_update_synced_status(acessos))
 
                         if results:
-                            self.queue.put(
-                                ("SYNC_COMPLETED", [acesso.id for acesso in results])
-                            )
-                            logger.debug(
-                                f"Put {len(results)} synced access records into the queue"
-                            )
+                            self.queue.put(("SYNC_COMPLETED", [acesso.id for acesso in results]))
+                            logger.debug(f"Put {len(results)} synced access records into the queue")
                             self.update_state(
                                 TaskState.SUCCESS,
                                 f"Sincronizados {len(results)} registros com sucesso",
                             )
                             self.failure_count = 0
                         else:
-                            self.update_state(
-                                TaskState.WARNING, "Nenhum registro foi sincronizado"
-                            )
+                            self.update_state(TaskState.WARNING, "Nenhum registro foi sincronizado")
                             self.failure_count = 0
 
                     except Exception as api_error:
                         logger.error(f"Error during API sync: {api_error}")
-                        self.set_error(
-                            f"Erro durante sincronização: {str(api_error)[:50]}..."
-                        )
+                        self.set_error(f"Erro durante sincronização: {str(api_error)[:50]}...")
                         raise
                 else:
                     self.update_state(
@@ -369,27 +325,19 @@ class DatabaseSyncTask(BaseTask):
                 self.failure_count += 1
 
                 if self.failure_count <= 3:
-                    logger.warning(
-                        f"Error in DB sync task (failure #{self.failure_count}): {e}"
-                    )
+                    logger.warning(f"Error in DB sync task (failure #{self.failure_count}): {e}")
                     logger.exception(e)
                 elif self.failure_count % 10 == 0:
-                    logger.error(
-                        f"DB sync task still failing after {self.failure_count} attempts: {e}"
-                    )
+                    logger.error(f"DB sync task still failing after {self.failure_count} attempts: {e}")
                 else:
                     logger.debug(f"DB sync task failure #{self.failure_count}: {e}")
 
                 self.set_error(f"{str(e)} (tentativa {self.failure_count})")
             finally:
-                wait_for_interval_with_backoff(
-                    self.stop_event, "DB sync task", self.failure_count
-                )
+                wait_for_interval_with_backoff(self.stop_event, "DB sync task", self.failure_count)
 
                 if not self.stop_event.is_set():
-                    self.update_state(
-                        TaskState.STARTING, "Iniciando novo ciclo de sincronização..."
-                    )
+                    self.update_state(TaskState.STARTING, "Iniciando novo ciclo de sincronização...")
 
         logger.info("DB sync task stopping")
         self.update_state(TaskState.STOPPED, "Tarefa finalizada")
