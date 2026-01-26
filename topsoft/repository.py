@@ -131,20 +131,14 @@ def bulk_process_turnstile_events(events: List[dict]) -> List[Acesso]:
     # Step 4: Bulk create access records using model method
     if access_records_to_create:
         processed_acessos = Acesso.bulk_create_access_records(access_records_to_create)
-        logger.info(
-            f"Bulk processed {len(processed_acessos)} new access records from {len(events)} events"
-        )
+        logger.info(f"Bulk processed {len(processed_acessos)} new access records from {len(events)} events")
         return processed_acessos
     else:
-        logger.info(
-            f"No new access records to create from {len(events)} events (all duplicates)"
-        )
+        logger.info(f"No new access records to create from {len(events)} events (all duplicates)")
         return []
 
 
-def bind_matricula_to_cartao_acesso_v2(
-    cartao_numeracao: str, aluno_matricula: str = None
-) -> bool:
+def bind_matricula_to_cartao_acesso_v2(cartao_numeracao: str, aluno_matricula: str = None) -> bool:
     """Bind a student to an access card using new model interface, or remove binding if aluno_matricula is None"""
     try:
         # Find the card
@@ -167,9 +161,7 @@ def bind_matricula_to_cartao_acesso_v2(
 
         # Bind them
         cartao.assign_to_aluno(aluno.id)
-        logger.info(
-            f"Successfully bound cartão {cartao_numeracao} to aluno {aluno.nome}"
-        )
+        logger.info(f"Successfully bound cartão {cartao_numeracao} to aluno {aluno.nome}")
         return True
 
     except Exception as e:

@@ -55,9 +55,7 @@ class CancellableOperation(ABC):
         # Callbacks para atualização da UI
         self._progress_callback: Optional[Callable[[ProgressInfo], None]] = None
         self._state_callback: Optional[Callable[[OperationState], None]] = None
-        self._completion_callback: Optional[
-            Callable[[bool, Optional[Exception]], None]
-        ] = None
+        self._completion_callback: Optional[Callable[[bool, Optional[Exception]], None]] = None
 
         # Controle de progresso
         self._current_progress = 0
@@ -72,9 +70,7 @@ class CancellableOperation(ABC):
         """Define callback para mudanças de estado."""
         self._state_callback = callback
 
-    def set_completion_callback(
-        self, callback: Callable[[bool, Optional[Exception]], None]
-    ):
+    def set_completion_callback(self, callback: Callable[[bool, Optional[Exception]], None]):
         """Define callback para conclusão da operação."""
         self._completion_callback = callback
 
@@ -86,9 +82,7 @@ class CancellableOperation(ABC):
             bool: True se a operação foi iniciada com sucesso, False caso contrário.
         """
         if self.state != OperationState.IDLE:
-            logger.warning(
-                f"Cannot start operation {self.name} - current state: {self.state}"
-            )
+            logger.warning(f"Cannot start operation {self.name} - current state: {self.state}")
             return False
 
         self._stop_event.clear()
@@ -274,9 +268,7 @@ class BatchProcessor:
                 self.operation._check_cancellation(0.01)  # Verificação mais frequente
 
         # Progresso final
-        self.operation._update_progress(
-            total_items, total_items, f"{progress_message} - Concluído"
-        )
+        self.operation._update_progress(total_items, total_items, f"{progress_message} - Concluído")
         return results
 
 
@@ -319,12 +311,8 @@ class FileProcessor(BatchProcessor):
 
                     # Atualiza progresso a cada 100 linhas ou no final
                     if line_number % 100 == 0 or line_number == total_lines:
-                        message = (
-                            f"{progress_message} - Linha {line_number}/{total_lines}"
-                        )
-                        self.operation._update_progress(
-                            line_number, total_lines, message
-                        )
+                        message = f"{progress_message} - Linha {line_number}/{total_lines}"
+                        self.operation._update_progress(line_number, total_lines, message)
 
                     # Processa a linha
                     try:

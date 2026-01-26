@@ -52,9 +52,7 @@ class StudentSelectionDialog:
         self.cartao_numeracao = cartao_numeracao
         self.current_aluno_info = current_aluno_info
         self.callback = callback
-        self.mode = (
-            mode  # "bind" for existing card binding, "create" for new card creation
-        )
+        self.mode = mode  # "bind" for existing card binding, "create" for new card creation
         self.selected_aluno = None
         self.all_alunos = []
         self.filtered_alunos = []
@@ -117,9 +115,7 @@ class StudentSelectionDialog:
         instructions_frame = ttk.Frame(header_frame)
         instructions_frame.pack(fill="x", pady=(10, 0))
 
-        ttk.Label(
-            instructions_frame, text="📋 Instruções:", font=("Arial", 9, "bold")
-        ).pack(anchor="w")
+        ttk.Label(instructions_frame, text="📋 Instruções:", font=("Arial", 9, "bold")).pack(anchor="w")
 
         ttk.Label(
             instructions_frame,
@@ -148,9 +144,7 @@ class StudentSelectionDialog:
         ).pack(anchor="w")
 
         # Card number input
-        card_input_frame = ttk.LabelFrame(
-            header_frame, text="Número do Cartão", padding=10
-        )
+        card_input_frame = ttk.LabelFrame(header_frame, text="Número do Cartão", padding=10)
         card_input_frame.pack(fill="x", pady=(10, 0))
 
         input_frame = ttk.Frame(card_input_frame)
@@ -202,9 +196,7 @@ class StudentSelectionDialog:
         instructions_frame = ttk.Frame(header_frame)
         instructions_frame.pack(fill="x", pady=(10, 0))
 
-        ttk.Label(
-            instructions_frame, text="📋 Instruções:", font=("Arial", 9, "bold")
-        ).pack(anchor="w")
+        ttk.Label(instructions_frame, text="📋 Instruções:", font=("Arial", 9, "bold")).pack(anchor="w")
 
         ttk.Label(
             instructions_frame,
@@ -237,9 +229,7 @@ class StudentSelectionDialog:
         search_entry_frame = ttk.Frame(search_frame)
         search_entry_frame.pack(fill="x")
 
-        ttk.Label(search_entry_frame, text="Buscar por nome ou matrícula:").pack(
-            anchor="w"
-        )
+        ttk.Label(search_entry_frame, text="Buscar por nome ou matrícula:").pack(anchor="w")
 
         # Tips label
         tip_text = "💡 Dica: Digite algumas letras do nome ou a matrícula completa"
@@ -287,9 +277,7 @@ class StudentSelectionDialog:
             bootstyle="outline",
         ).pack(side="left")
 
-        self.results_label = ttk.Label(
-            clear_frame, text="", font=("Arial", 9), foreground="gray"
-        )
+        self.results_label = ttk.Label(clear_frame, text="", font=("Arial", 9), foreground="gray")
         self.results_label.pack(side="right")
 
     def _create_table_section(self, main_frame):
@@ -328,9 +316,7 @@ class StudentSelectionDialog:
         button_frame.pack(fill="x", pady=(10, 0))
 
         # Cancel button (always present)
-        ttk.Button(
-            button_frame, text="Cancelar", command=self._cancel, bootstyle="secondary"
-        ).pack(side="left")
+        ttk.Button(button_frame, text="Cancelar", command=self._cancel, bootstyle="secondary").pack(side="left")
 
         if self.mode == "create":
             # Create card mode buttons
@@ -344,10 +330,7 @@ class StudentSelectionDialog:
             # Binding mode buttons
             # Make remove binding more prominent if there's a current binding
             remove_text = "🗑️ Remover Vinculação"
-            if (
-                self.current_aluno_info
-                and "Não vinculado" not in self.current_aluno_info
-            ):
+            if self.current_aluno_info and "Não vinculado" not in self.current_aluno_info:
                 remove_bootstyle = "warning"
             else:
                 remove_text = "Remover Vinculação (Já removido)"
@@ -382,9 +365,7 @@ class StudentSelectionDialog:
 
         except Exception as e:
             logger.error(f"Error loading students: {e}")
-            self.dialog.after(
-                0, lambda: self._show_error(f"Erro ao carregar alunos: {e}")
-            )
+            self.dialog.after(0, lambda: self._show_error(f"Erro ao carregar alunos: {e}"))
 
     def _populate_table(self, students=None):
         """Populate the table with students."""
@@ -512,9 +493,7 @@ class StudentSelectionDialog:
         selected_aluno = self._get_selected_student()
 
         if not selected_aluno:
-            Messagebox.show_warning(
-                "Por favor, selecione um aluno da lista.", "Nenhum Aluno Selecionado"
-            )
+            Messagebox.show_warning("Por favor, selecione um aluno da lista.", "Nenhum Aluno Selecionado")
             return
 
         # Confirm the selection
@@ -529,9 +508,7 @@ class StudentSelectionDialog:
         if result == "Yes":
             try:
                 # Perform the binding
-                if bind_matricula_to_cartao_acesso(
-                    self.cartao_numeracao, selected_aluno.matricula
-                ):
+                if bind_matricula_to_cartao_acesso(self.cartao_numeracao, selected_aluno.matricula):
                     Messagebox.show_info(
                         f"Cartão {self.cartao_numeracao} vinculado com sucesso ao aluno {selected_aluno.nome}!",
                         "Vinculação Realizada",
@@ -548,32 +525,24 @@ class StudentSelectionDialog:
                     )
             except Exception as e:
                 logger.error(f"Error binding card to student: {e}")
-                Messagebox.show_error(
-                    f"Erro ao vincular cartão: {e}", "Erro na Vinculação"
-                )
+                Messagebox.show_error(f"Erro ao vincular cartão: {e}", "Erro na Vinculação")
 
     def _validate_card_number(self):
         """Validate the card number for new card creation."""
         card_number = self.card_number_var.get().strip()
 
         if not card_number:
-            self.card_status_label.config(
-                text="❌ Digite um número de cartão", foreground="red"
-            )
+            self.card_status_label.config(text="❌ Digite um número de cartão", foreground="red")
             return False
 
         # Check if it's numeric
         if not card_number.isdigit():
-            self.card_status_label.config(
-                text="❌ O número deve conter apenas dígitos", foreground="red"
-            )
+            self.card_status_label.config(text="❌ O número deve conter apenas dígitos", foreground="red")
             return False
 
         # Check length (allow up to 16 digits)
         if len(card_number) > 16:
-            self.card_status_label.config(
-                text="❌ Número muito longo (máximo 16 dígitos)", foreground="red"
-            )
+            self.card_status_label.config(text="❌ Número muito longo (máximo 16 dígitos)", foreground="red")
             return False
 
         # Format with leading zeros
@@ -584,11 +553,7 @@ class StudentSelectionDialog:
         try:
             existing_card = CartaoAcesso.find_by_numeracao(formatted_number)
             if existing_card:
-                aluno_info = (
-                    f" (vinculado a {existing_card.aluno.nome})"
-                    if existing_card.aluno
-                    else " (não vinculado)"
-                )
+                aluno_info = f" (vinculado a {existing_card.aluno.nome})" if existing_card.aluno else " (não vinculado)"
                 self.card_status_label.config(
                     text=f"❌ Cartão {formatted_number} já existe{aluno_info}",
                     foreground="red",
@@ -602,9 +567,7 @@ class StudentSelectionDialog:
                 return True
         except Exception as e:
             logger.error(f"Error validating card number: {e}")
-            self.card_status_label.config(
-                text="❌ Erro ao validar número do cartão", foreground="red"
-            )
+            self.card_status_label.config(text="❌ Erro ao validar número do cartão", foreground="red")
             return False
 
     def _create_new_card(self):
@@ -648,14 +611,10 @@ class StudentSelectionDialog:
                     new_card.assign_to_aluno(selected_aluno.id)
                     success_message = f"Cartão {card_number} criado e vinculado com sucesso ao aluno {selected_aluno.nome}!"
                 else:
-                    success_message = (
-                        f"Cartão {card_number} criado com sucesso! (Sem vinculação)"
-                    )
+                    success_message = f"Cartão {card_number} criado com sucesso! (Sem vinculação)"
 
                 Messagebox.show_info(success_message, "Cartão Criado")
-                logger.info(
-                    f"New card created: {card_number}, bound to: {selected_aluno.matricula if selected_aluno else 'None'}"
-                )
+                logger.info(f"New card created: {card_number}, bound to: {selected_aluno.matricula if selected_aluno else 'None'}")
 
                 # Refresh parent table and close dialog
                 if self.callback:
@@ -708,9 +667,7 @@ class StudentSelectionDialog:
                     )
             except Exception as e:
                 logger.error(f"Error removing card binding: {e}")
-                Messagebox.show_error(
-                    f"Erro ao remover vinculação: {e}", "Erro na Remoção"
-                )
+                Messagebox.show_error(f"Erro ao remover vinculação: {e}", "Erro na Remoção")
 
     def _cancel(self):
         """Cancel the dialog."""
@@ -808,9 +765,7 @@ class CartoesAcessoFrame(Frame):
         )
 
         # Create vertical scrollbar
-        v_scrollbar = ttk.Scrollbar(
-            table_container, orient="vertical", command=self.table.view.yview
-        )
+        v_scrollbar = ttk.Scrollbar(table_container, orient="vertical", command=self.table.view.yview)
         self.table.view.configure(yscrollcommand=v_scrollbar.set)
 
         # Pack table and scrollbar
@@ -852,11 +807,7 @@ class CartoesAcessoFrame(Frame):
             # Populate the table
             row_datas = []
             for i, cartao in enumerate(cartoes):
-                aluno_info = (
-                    f"{cartao.aluno.nome} ({cartao.aluno.matricula})"
-                    if cartao.aluno
-                    else "Não vinculado"
-                )
+                aluno_info = f"{cartao.aluno.nome} ({cartao.aluno.matricula})" if cartao.aluno else "Não vinculado"
                 row_datas.append((cartao.numeracao, aluno_info))
 
             # Schedule UI update on main thread
@@ -921,13 +872,9 @@ class CartoesAcessoFrame(Frame):
     def _create_context_menu(self):
         """Create context menu for table rows."""
         self.context_menu = ttk.Menu(self, tearoff=0)
-        self.context_menu.add_command(
-            label="✏️ Editar Vinculação", command=self.edit_selected_card
-        )
+        self.context_menu.add_command(label="✏️ Editar Vinculação", command=self.edit_selected_card)
         self.context_menu.add_separator()
-        self.context_menu.add_command(
-            label="🗑️ Excluir Cartão", command=self.delete_selected_card
-        )
+        self.context_menu.add_command(label="🗑️ Excluir Cartão", command=self.delete_selected_card)
 
     def show_context_menu(self, event):
         """Show context menu on right-click."""
@@ -947,9 +894,7 @@ class CartoesAcessoFrame(Frame):
         """Edit the selected card (same as double-click)."""
         selected_rows = self.table.get_rows(selected=True)
         if not selected_rows:
-            Messagebox.show_warning(
-                "Por favor, selecione um cartão da lista.", "Nenhum Cartão Selecionado"
-            )
+            Messagebox.show_warning("Por favor, selecione um cartão da lista.", "Nenhum Cartão Selecionado")
             return
 
         # Get the selected row data
@@ -968,9 +913,7 @@ class CartoesAcessoFrame(Frame):
         """Delete the selected card after validation."""
         selected_rows = self.table.get_rows(selected=True)
         if not selected_rows:
-            Messagebox.show_warning(
-                "Por favor, selecione um cartão da lista.", "Nenhum Cartão Selecionado"
-            )
+            Messagebox.show_warning("Por favor, selecione um cartão da lista.", "Nenhum Cartão Selecionado")
             return
 
         # Get the selected card
@@ -1000,11 +943,7 @@ class CartoesAcessoFrame(Frame):
                 return
 
             # Show confirmation dialog with details
-            binding_info = (
-                f"\nVinculação atual: {aluno_info}"
-                if "Não vinculado" not in aluno_info
-                else "\nCartão não vinculado"
-            )
+            binding_info = f"\nVinculação atual: {aluno_info}" if "Não vinculado" not in aluno_info else "\nCartão não vinculado"
 
             result = Messagebox.show_question(
                 f"⚠️ ATENÇÃO: Esta ação é irreversível!\n\n"
@@ -1030,9 +969,7 @@ class CartoesAcessoFrame(Frame):
 
         except Exception as e:
             logger.error(f"Error deleting card {cartao_numeracao}: {e}")
-            Messagebox.show_error(
-                f"Erro inesperado ao excluir cartão:\n{str(e)}", "Erro na Exclusão"
-            )
+            Messagebox.show_error(f"Erro inesperado ao excluir cartão:\n{str(e)}", "Erro na Exclusão")
 
     def export_cartoes_acesso(self):
         """
@@ -1053,14 +990,10 @@ class CartoesAcessoFrame(Frame):
 
         def on_result(success, error):
             if success:
-                Messagebox.show_info(
-                    "Cartões de Acesso exportados com sucesso!", "Sucesso"
-                )
+                Messagebox.show_info("Cartões de Acesso exportados com sucesso!", "Sucesso")
                 logger.info(f"Cards exported successfully to {filename}")
             else:
-                error_msg = (
-                    str(error) if error else "Erro desconhecido durante exportação"
-                )
+                error_msg = str(error) if error else "Erro desconhecido durante exportação"
                 Messagebox.show_error(f"Erro ao exportar cartões: {error_msg}", "Erro")
                 logger.error(f"Export failed: {error_msg}")
 
@@ -1112,24 +1045,18 @@ class CartoesAcessoFrame(Frame):
                     message += f"Erros encontrados: {errors}"
 
                 Messagebox.show_info(message, "Importação Concluída")
-                logger.info(
-                    f"Cards imported: {imported}, skipped: {skipped}, errors: {errors}"
-                )
+                logger.info(f"Cards imported: {imported}, skipped: {skipped}, errors: {errors}")
             else:
                 # Refresh table anyway in case some cards were imported before error/cancellation
                 self.populate_table()
 
                 if error:
                     error_msg = str(error)
-                    Messagebox.show_error(
-                        f"Erro durante importação: {error_msg}", "Erro"
-                    )
+                    Messagebox.show_error(f"Erro durante importação: {error_msg}", "Erro")
                     logger.error(f"Import failed: {error_msg}")
                 else:
                     # Operation was cancelled
-                    Messagebox.show_info(
-                        "Importação cancelada pelo usuário.", "Cancelado"
-                    )
+                    Messagebox.show_info("Importação cancelada pelo usuário.", "Cancelado")
                     logger.info("Import cancelled by user")
 
         # Show progress dialog
@@ -1297,9 +1224,7 @@ class AcessosFrame(Frame):
         # If some IDs weren't found in visible rows (due to pagination/filtering),
         # schedule a table refresh to ensure all updates are reflected
         if updated_count < len(acesso_ids):
-            logger.debug(
-                f"Updated {updated_count}/{len(acesso_ids)} visible rows, scheduling table refresh"
-            )
+            logger.debug(f"Updated {updated_count}/{len(acesso_ids)} visible rows, scheduling table refresh")
             # Use after to avoid blocking the UI
             self.after(100, self.refresh_table_data)
         else:
@@ -1317,9 +1242,7 @@ class AcessosFrame(Frame):
         current_search = getattr(self.table, "searchterm", "")
 
         # Refresh the data
-        thread = threading.Thread(
-            target=self._refresh_table_thread, args=(current_page, current_search)
-        )
+        thread = threading.Thread(target=self._refresh_table_thread, args=(current_page, current_search))
         thread.daemon = True
         thread.start()
 
@@ -1352,9 +1275,7 @@ class AcessosFrame(Frame):
             # Update UI in main thread while preserving state
             self.after(
                 0,
-                lambda: self._update_table_preserving_state(
-                    rows_data, current_page, current_search
-                ),
+                lambda: self._update_table_preserving_state(rows_data, current_page, current_search),
             )
 
         except Exception as e:
@@ -1395,9 +1316,7 @@ class AcessosFrame(Frame):
         :param new_record_count: Number of new records added (for logging)
         """
         if new_record_count > 0:
-            logger.info(
-                f"New data processed: {new_record_count} records. Refreshing table..."
-            )
+            logger.info(f"New data processed: {new_record_count} records. Refreshing table...")
             # For new data, we need a full refresh
             self.populate_table()
         else:
@@ -1435,9 +1354,7 @@ class ConfigurationFrame(Frame):
             self.lf_bilhetes,
             textvariable=self.bilhetes_path,
         )
-        self.entry_bilhetes_path.pack(
-            expand=True, fill="x", padx=10, pady=10, side="left"
-        )
+        self.entry_bilhetes_path.pack(expand=True, fill="x", padx=10, pady=10, side="left")
 
         self.btn_bilhetes_path = ttk.Button(
             self.lf_bilhetes,
@@ -1465,9 +1382,7 @@ class ConfigurationFrame(Frame):
         self.intervalo = ttk.IntVar()
         self.intervalo.set(get_interval())
 
-        self.lf_intervalo = ttk.LabelFrame(
-            self.lf_datas, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] minutos"
-        )
+        self.lf_intervalo = ttk.LabelFrame(self.lf_datas, text=f"Intervalo [{MIN_INTERVAL}-{MAX_INTERVAL}] minutos")
         self.lf_intervalo.pack(expand=True, fill="both", side="left", padx=10, pady=10)
 
         self.spin_intervalo = ttk.Spinbox(
@@ -1534,9 +1449,7 @@ class ConfigurationFrame(Frame):
             show="*",
             state="readonly",
         )
-        self.entry_telegram_api.pack(
-            expand=True, fill="x", padx=10, pady=10, side="left"
-        )
+        self.entry_telegram_api.pack(expand=True, fill="x", padx=10, pady=10, side="left")
 
         self.change_telegram_api = ttk.StringVar()
         self.change_telegram_api.set("")
@@ -1552,9 +1465,7 @@ class ConfigurationFrame(Frame):
         self.cb_edit_telegram_api.pack(expand=False, padx=10, pady=10, side="left")
 
         # Database Backup/Restore Section
-        self.lf_database = ttk.LabelFrame(
-            self, text="Backup e Restauração do Banco de Dados"
-        )
+        self.lf_database = ttk.LabelFrame(self, text="Backup e Restauração do Banco de Dados")
         self.lf_database.pack(expand=False, fill="x", padx=10, pady=10)
 
         # Info label
@@ -1706,9 +1617,7 @@ class ConfigurationFrame(Frame):
 
         try:
             # Start export in background thread
-            threading.Thread(
-                target=self._export_database_thread, args=(filename,), daemon=True
-            ).start()
+            threading.Thread(target=self._export_database_thread, args=(filename,), daemon=True).start()
 
         except Exception as e:
             logger.error(f"Error starting database export: {e}")
@@ -1725,9 +1634,7 @@ class ConfigurationFrame(Frame):
             # Show progress
             self.after(
                 0,
-                lambda: Messagebox.show_info(
-                    "Exportação iniciada. Por favor aguarde...", "Exportando"
-                ),
+                lambda: Messagebox.show_info("Exportação iniciada. Por favor aguarde...", "Exportando"),
             )
 
             # Collect all data
@@ -1752,11 +1659,7 @@ class ConfigurationFrame(Frame):
                     "responsavel_id": aluno.responsavel_id,
                     "cpf": aluno.cpf,
                     "sexo": aluno.sexo,
-                    "data_nascimento": (
-                        aluno.data_nascimento.isoformat()
-                        if aluno.data_nascimento
-                        else None
-                    ),
+                    "data_nascimento": (aluno.data_nascimento.isoformat() if aluno.data_nascimento else None),
                     "celular": aluno.celular,
                     "email": aluno.email,
                     "url_foto": aluno.url_foto,
@@ -1767,9 +1670,7 @@ class ConfigurationFrame(Frame):
                     "unidade_id": aluno.unidade_id,
                     "tipo_liberacao": aluno.tipo_liberacao,
                     "foto_data_hora_alteracao": (
-                        aluno.foto_data_hora_alteracao.isoformat()
-                        if aluno.foto_data_hora_alteracao
-                        else None
+                        aluno.foto_data_hora_alteracao.isoformat() if aluno.foto_data_hora_alteracao else None
                     ),
                     "responsaveis_adicionais_ids": aluno.responsaveis_adicionais_ids,
                     "id_turmas": aluno.id_turmas,
@@ -1823,9 +1724,7 @@ class ConfigurationFrame(Frame):
             logger.error(f"Error exporting database: {e}")
             self.after(
                 0,
-                lambda: Messagebox.show_error(
-                    f"Erro durante exportação:\n{str(e)}", "Erro na Exportação"
-                ),
+                lambda: Messagebox.show_error(f"Erro durante exportação:\n{str(e)}", "Erro na Exportação"),
             )
 
     def import_database_json(self):
@@ -1854,9 +1753,7 @@ class ConfigurationFrame(Frame):
 
         try:
             # Start import in background thread
-            threading.Thread(
-                target=self._import_database_thread, args=(filename,), daemon=True
-            ).start()
+            threading.Thread(target=self._import_database_thread, args=(filename,), daemon=True).start()
 
         except Exception as e:
             logger.error(f"Error starting database import: {e}")
@@ -1874,9 +1771,7 @@ class ConfigurationFrame(Frame):
             # Show progress
             self.after(
                 0,
-                lambda: Messagebox.show_info(
-                    "Importação iniciada. Por favor aguarde...", "Importando"
-                ),
+                lambda: Messagebox.show_info("Importação iniciada. Por favor aguarde...", "Importando"),
             )
 
             # Read and parse JSON
@@ -1902,31 +1797,23 @@ class ConfigurationFrame(Frame):
                         cpf=aluno_data.get("cpf"),
                         sexo=aluno_data.get("sexo"),
                         data_nascimento=(
-                            datetime.fromisoformat(aluno_data["data_nascimento"])
-                            if aluno_data.get("data_nascimento")
-                            else None
+                            datetime.fromisoformat(aluno_data["data_nascimento"]) if aluno_data.get("data_nascimento") else None
                         ),
                         celular=aluno_data.get("celular"),
                         email=aluno_data.get("email"),
                         url_foto=aluno_data.get("url_foto"),
-                        responsavel_secundario_id=aluno_data.get(
-                            "responsavel_secundario_id"
-                        ),
+                        responsavel_secundario_id=aluno_data.get("responsavel_secundario_id"),
                         filiacao_1_id=aluno_data.get("filiacao_1_id"),
                         filiacao_2_id=aluno_data.get("filiacao_2_id"),
                         cartao_acesso=aluno_data.get("cartao_acesso"),
                         unidade_id=aluno_data.get("unidade_id"),
                         tipo_liberacao=aluno_data.get("tipo_liberacao"),
                         foto_data_hora_alteracao=(
-                            datetime.fromisoformat(
-                                aluno_data["foto_data_hora_alteracao"]
-                            )
+                            datetime.fromisoformat(aluno_data["foto_data_hora_alteracao"])
                             if aluno_data.get("foto_data_hora_alteracao")
                             else None
                         ),
-                        responsaveis_adicionais_ids=aluno_data.get(
-                            "responsaveis_adicionais_ids", []
-                        ),
+                        responsaveis_adicionais_ids=aluno_data.get("responsaveis_adicionais_ids", []),
                         id_turmas=aluno_data.get("id_turmas", []),
                     )
                     session.add(aluno)
@@ -1979,9 +1866,7 @@ class ConfigurationFrame(Frame):
             logger.error(f"Error importing database: {e}")
             self.after(
                 0,
-                lambda: Messagebox.show_error(
-                    f"Erro durante importação:\n{str(e)}", "Erro na Importação"
-                ),
+                lambda: Messagebox.show_error(f"Erro durante importação:\n{str(e)}", "Erro na Importação"),
             )
 
 
@@ -2004,9 +1889,7 @@ class TaskMonitorFrame(Frame):
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
         # Title
-        title_label = ttk.Label(
-            main_frame, text="Monitor de Tarefas", font=("Arial", 16, "bold")
-        )
+        title_label = ttk.Label(main_frame, text="Monitor de Tarefas", font=("Arial", 16, "bold"))
         title_label.pack(pady=(0, 20))
 
         # Task monitoring containers
@@ -2050,9 +1933,7 @@ class TaskMonitorFrame(Frame):
         self.task_frames[task_id] = task_frame
 
         # Description
-        desc_label = ttk.Label(
-            task_frame, text=task_description, font=("Arial", 9), foreground="gray"
-        )
+        desc_label = ttk.Label(task_frame, text=task_description, font=("Arial", 9), foreground="gray")
         desc_label.pack(anchor="w", pady=(0, 10))
 
         # Status and time row
@@ -2060,9 +1941,7 @@ class TaskMonitorFrame(Frame):
         status_time_frame.pack(fill="x", pady=(0, 10))
 
         # Status label
-        status_label = ttk.Label(
-            status_time_frame, text="⏳ Iniciando...", font=("Arial", 10, "bold")
-        )
+        status_label = ttk.Label(status_time_frame, text="⏳ Iniciando...", font=("Arial", 10, "bold"))
         status_label.pack(side="left")
         self.status_labels[task_id] = status_label
 
@@ -2077,9 +1956,7 @@ class TaskMonitorFrame(Frame):
         self.time_labels[task_id] = time_label
 
         # Progress bar
-        progress_bar = ttk.Progressbar(
-            task_frame, mode="indeterminate", bootstyle="info", length=400
-        )
+        progress_bar = ttk.Progressbar(task_frame, mode="indeterminate", bootstyle="info", length=400)
         progress_bar.pack(fill="x", pady=(0, 10))
         self.progress_bars[task_id] = progress_bar
 
@@ -2180,9 +2057,7 @@ class TaskMonitorFrame(Frame):
         # Update time and details
         if last_run_time:
             try:
-                time_label.config(
-                    text=f"Última execução: {last_run_time.strftime('%H:%M:%S')}"
-                )
+                time_label.config(text=f"Última execução: {last_run_time.strftime('%H:%M:%S')}")
             except (AttributeError, ValueError) as e:
                 logger.warning(f"Error formatting last_run_time for {task_id}: {e}")
                 time_label.config(text="Última execução: --:--:--")
@@ -2216,10 +2091,7 @@ class TaskMonitorFrame(Frame):
         """
         # This method is kept for backward compatibility but should not be used
         # with the new task monitoring system
-        logger.warning(
-            f"Legacy set_task_status called for {task_id}. "
-            "Tasks should update their status through the task registry."
-        )
+        logger.warning(f"Legacy set_task_status called for {task_id}. " "Tasks should update their status through the task registry.")
 
     def _update_single_task(self, task_id, status):
         """Legacy method kept for compatibility."""

@@ -100,9 +100,7 @@ def ingest_bilhetes(
                     if ticket:
                         fallback_tickets.append(ticket)
                 except Exception as event_error:
-                    logger.warning(
-                        f"Error processing individual event: {event}, error: {event_error}"
-                    )
+                    logger.warning(f"Error processing individual event: {event}, error: {event_error}")
             return fallback_tickets
 
     for n, raw_line in enumerate(reader):
@@ -123,9 +121,7 @@ def ingest_bilhetes(
 
         # Parse the timestamp from the line
         try:
-            parsed_timestamp = datetime.strptime(
-                f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M"
-            )
+            parsed_timestamp = datetime.strptime(f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M")
         except ValueError:
             logger.warning(f"Invalid timestamp in line: {raw_line!r}")
             continue
@@ -175,9 +171,7 @@ def wait_for_interval(stop_event, task_name="background task"):
 
     intervalo = get_interval() * 60
 
-    logger.debug(
-        f"{task_name}: Waiting {intervalo} seconds until next processing cycle"
-    )
+    logger.debug(f"{task_name}: Waiting {intervalo} seconds until next processing cycle")
 
     # Use stop_event.wait() instead of sleep() for immediate interruption
     # This will return True if the event was set, False if timeout occurred
@@ -190,9 +184,7 @@ def wait_for_interval(stop_event, task_name="background task"):
     logger.debug(f"{task_name}: Wait period completed, resuming processing")
 
 
-def wait_for_interval_with_backoff(
-    stop_event, task_name="background task", failure_count=0
-):
+def wait_for_interval_with_backoff(stop_event, task_name="background task", failure_count=0):
     """
     Wait for interval with exponential backoff based on consecutive failures.
     This reduces the frequency of retries when there are persistent issues (like network problems).
@@ -220,9 +212,7 @@ def wait_for_interval_with_backoff(
         intervalo = BACKOFF_INTERVALS[backoff_level] * 60
 
         if failure_count == 1:
-            logger.info(
-                f"{task_name}: First failure detected, waiting {BACKOFF_INTERVALS[backoff_level]} minutes before retry"
-            )
+            logger.info(f"{task_name}: First failure detected, waiting {BACKOFF_INTERVALS[backoff_level]} minutes before retry")
         else:
             logger.warning(
                 f"{task_name}: {failure_count} consecutive failures, using backoff interval: {BACKOFF_INTERVALS[backoff_level]} minutes"
@@ -348,9 +338,7 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
     if chunk_size is None:
         chunk_size = FILE_READ_CHUNK_SIZE
 
-    logger.debug(
-        f"Fast reading bilhetes from file: {filepath} (chunk_size={chunk_size})"
-    )
+    logger.debug(f"Fast reading bilhetes from file: {filepath} (chunk_size={chunk_size})")
 
     events = []
     line_count = 0
@@ -365,9 +353,7 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
 
         is_initial_read = not os.path.exists(OFFSET_PATH)
         if is_initial_read:
-            logger.info(
-                f"Performing initial read of large file - processing in chunks of {chunk_size} lines"
-            )
+            logger.info(f"Performing initial read of large file - processing in chunks of {chunk_size} lines")
 
         for raw_line in reader:
             line_count += 1
@@ -380,17 +366,13 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
 
             # For large initial reads, provide progress feedback every chunk
             if is_initial_read and line_count % chunk_size == 0:
-                logger.info(
-                    f"Processed {line_count} lines... (found {len(events)} valid events so far)"
-                )
+                logger.info(f"Processed {line_count} lines... (found {len(events)} valid events so far)")
 
             # Skip empty lines or malformed lines
             parts = raw_line.strip().split()
             if len(parts) < 5:
                 if line_count <= 10:  # Only warn for first few lines to avoid spam
-                    logger.warning(
-                        f"Skipping malformed line {line_count}: {raw_line!r}"
-                    )
+                    logger.warning(f"Skipping malformed line {line_count}: {raw_line!r}")
                 continue
 
             # Parse and validate timestamp quickly (minimal validation for speed)
@@ -399,9 +381,7 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
                 datetime.strptime(f"{parts[1]} {parts[2]}", "%d/%m/%y %H:%M")
             except ValueError:
                 if processed_count <= 10:  # Only warn for first few invalid timestamps
-                    logger.warning(
-                        f"Invalid timestamp in line {line_count}: {raw_line!r}"
-                    )
+                    logger.warning(f"Invalid timestamp in line {line_count}: {raw_line!r}")
                 continue
 
             # Create raw event (no database operations)
@@ -425,9 +405,7 @@ def read_bilhetes_fast(filepath, stop_event, chunk_size=None):
         return events  # Return what we have so far
 
     if is_initial_read and line_count > 1000:
-        logger.info(
-            f"Initial read completed: processed {line_count} lines, found {len(events)} valid events"
-        )
+        logger.info(f"Initial read completed: processed {line_count} lines, found {len(events)} valid events")
     else:
         logger.debug(f"Fast read completed, found {len(events)} new events")
 
@@ -448,9 +426,7 @@ def process_events_to_database(events, stop_event, batch_size=None):
     if batch_size is None:
         batch_size = DB_BATCH_SIZE
 
-    logger.info(
-        f"Processing {len(events)} events into database (batch_size={batch_size})"
-    )
+    logger.info(f"Processing {len(events)} events into database (batch_size={batch_size})")
 
     if not events:
         return []
@@ -467,17 +443,13 @@ def process_events_to_database(events, stop_event, batch_size=None):
         batch = events[i : i + batch_size]
         batch_number = i // batch_size + 1
         total_batches = (len(events) + batch_size - 1) // batch_size
-        logger.info(
-            f"Processing batch {batch_number}/{total_batches}: {len(batch)} events"
-        )
+        logger.info(f"Processing batch {batch_number}/{total_batches}: {len(batch)} events")
 
         try:
             # Use existing bulk processing function
             batch_records = bulk_process_turnstile_events(batch)
             all_records.extend(batch_records)
-            logger.debug(
-                f"Batch {batch_number} completed successfully: {len(batch_records)} records processed"
-            )
+            logger.debug(f"Batch {batch_number} completed successfully: {len(batch_records)} records processed")
 
         except Exception as e:
             logger.error(f"Error processing batch {batch_number}: {e}")
@@ -493,9 +465,7 @@ def process_events_to_database(events, stop_event, batch_size=None):
                     if record:
                         all_records.append(record)
                 except Exception as event_error:
-                    logger.warning(
-                        f"Error processing individual event: {event}, error: {event_error}"
-                    )
+                    logger.warning(f"Error processing individual event: {event}, error: {event_error}")
 
         # Small delay between batches to allow other operations
         if not stop_event.is_set():

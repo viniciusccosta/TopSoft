@@ -80,9 +80,7 @@ class ImportCartoesOperation(CancellableOperation):
             # Verificar se linha tem tamanho suficiente
             if not line or len(line) < 56:
                 if line.strip():  # Só contar como erro se não for linha vazia
-                    logger.warning(
-                        f"Linha {line_number} muito curta: {len(line)} caracteres"
-                    )
+                    logger.warning(f"Linha {line_number} muito curta: {len(line)} caracteres")
                     self.error_count += 1
                 return None
 
@@ -112,9 +110,7 @@ class ImportCartoesOperation(CancellableOperation):
                     logger.debug(f"Cartão {numero} criado e vinculado a {nome}")
                     result_type = "imported_with_student"
                 else:
-                    logger.debug(
-                        f"Cartão {numero} criado (aluno '{nome}' não encontrado)"
-                    )
+                    logger.debug(f"Cartão {numero} criado (aluno '{nome}' não encontrado)")
                     result_type = "imported_no_student"
             else:
                 logger.debug(f"Cartão {numero} criado sem vinculação")
@@ -162,9 +158,7 @@ class ExportCartoesOperation(CancellableOperation):
             logger.warning("No cards found for export")
             return {"exported": 0, "total": 0}
 
-        self._update_progress(
-            0, total_cartoes, f"Exportando {total_cartoes} cartões..."
-        )
+        self._update_progress(0, total_cartoes, f"Exportando {total_cartoes} cartões...")
 
         # Preparar dados para exportação
         formatted_lines = []
@@ -180,9 +174,7 @@ class ExportCartoesOperation(CancellableOperation):
             formatted_lines.append(formatted_line)
 
             # Atualizar progresso
-            self._update_progress(
-                i + 1, total_cartoes, f"Processando cartão {i + 1}/{total_cartoes}"
-            )
+            self._update_progress(i + 1, total_cartoes, f"Processando cartão {i + 1}/{total_cartoes}")
 
         # Escrever arquivo
         self._update_progress(total_cartoes, total_cartoes, "Salvando arquivo...")
@@ -244,9 +236,7 @@ class BulkProcessOperation(CancellableOperation):
             total_batches = (total_items + self.batch_size - 1) // self.batch_size
 
             # Atualizar progresso
-            self._update_progress(
-                i, total_items, f"Processando lote {batch_number}/{total_batches}"
-            )
+            self._update_progress(i, total_items, f"Processando lote {batch_number}/{total_batches}")
 
             # Processar lote
             try:
@@ -274,8 +264,7 @@ class BulkProcessOperation(CancellableOperation):
         )
 
         logger.info(
-            f"Bulk processing completed. Success: {self.success_count}, "
-            f"Errors: {self.error_count}, Total: {self.processed_count}"
+            f"Bulk processing completed. Success: {self.success_count}, " f"Errors: {self.error_count}, Total: {self.processed_count}"
         )
 
         return {

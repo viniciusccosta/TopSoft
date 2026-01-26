@@ -76,9 +76,7 @@ class ProgressDialog:
         main_frame.pack(fill="both", expand=True)
 
         # Label de status
-        self.status_label = ttk.Label(
-            main_frame, text="Iniciando operação...", font=("Arial", 10), wraplength=350
-        )
+        self.status_label = ttk.Label(main_frame, text="Iniciando operação...", font=("Arial", 10), wraplength=350)
         self.status_label.pack(pady=(0, 15))
 
         # Barra de progresso
@@ -93,9 +91,7 @@ class ProgressDialog:
         self.progress_bar.pack(pady=(0, 10))
 
         # Label de percentual
-        self.percent_label = ttk.Label(
-            main_frame, text="0%", font=("Arial", 9), foreground="gray"
-        )
+        self.percent_label = ttk.Label(main_frame, text="0%", font=("Arial", 9), foreground="gray")
         self.percent_label.pack(pady=(0, 15))
 
         # Frame para botões
@@ -114,9 +110,7 @@ class ProgressDialog:
             self.cancel_button.pack(side="right")
 
         # Botão OK (inicialmente oculto)
-        self.ok_button = ttk.Button(
-            button_frame, text="OK", command=self._on_ok, bootstyle="primary", width=12
-        )
+        self.ok_button = ttk.Button(button_frame, text="OK", command=self._on_ok, bootstyle="primary", width=12)
 
     def set_result_callback(self, callback):
         """Define callback chamado quando operação termina."""

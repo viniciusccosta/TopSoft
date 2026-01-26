@@ -224,9 +224,7 @@ class Aluno(BaseModel, table=True):
         if not cartao_ids:
             return []
 
-        statement = select(Acesso).where(
-            Acesso.cartao_acesso_id.in_(cartao_ids), Acesso.date >= cutoff_date
-        )
+        statement = select(Acesso).where(Acesso.cartao_acesso_id.in_(cartao_ids), Acesso.date >= cutoff_date)
         return session.exec(statement).all()
 
     @classmethod
@@ -268,9 +266,7 @@ class Aluno(BaseModel, table=True):
                 # Convert date string to datetime if needed
                 if data.get("data_nascimento"):
                     try:
-                        data["data_nascimento"] = datetime.fromisoformat(
-                            data["data_nascimento"]
-                        )
+                        data["data_nascimento"] = datetime.fromisoformat(data["data_nascimento"])
                     except ValueError:
                         pass  # leave as-is or set None
 
@@ -283,9 +279,7 @@ class Aluno(BaseModel, table=True):
                             setattr(aluno, key, val)
                 else:
                     # Create new student
-                    valid_data = {
-                        key: val for key, val in data.items() if hasattr(cls, key)
-                    }
+                    valid_data = {key: val for key, val in data.items() if hasattr(cls, key)}
                     aluno = cls(**valid_data)
                     session.add(aluno)
 
@@ -356,9 +350,7 @@ class CartaoAcesso(BaseModel, table=True):
         """Get recent access records for this card"""
         session = self._get_session()
         cutoff_date = date.today() - timedelta(days=days)
-        statement = select(Acesso).where(
-            Acesso.cartao_acesso_id == self.id, Acesso.date >= cutoff_date
-        )
+        statement = select(Acesso).where(Acesso.cartao_acesso_id == self.id, Acesso.date >= cutoff_date)
         return session.exec(statement).all()
 
     def assign_to_aluno(self, aluno_id: int) -> "CartaoAcesso":
@@ -503,11 +495,7 @@ class Acesso(BaseModel, table=True):
             from sqlalchemy.orm import joinedload
 
             session = cls._get_session()
-            statement = (
-                select(cls)
-                .options(joinedload(cls.cartao_acesso))
-                .order_by(cls.date.desc(), cls.time.desc())
-            )
+            statement = select(cls).options(joinedload(cls.cartao_acesso)).order_by(cls.date.desc(), cls.time.desc())
 
             # Apply pagination if specified
             if offset is not None:
@@ -526,11 +514,7 @@ class Acesso(BaseModel, table=True):
         from sqlalchemy.orm import joinedload
 
         session = cls._get_session()
-        statement = (
-            select(cls)
-            .where(cls.synced == False)
-            .options(joinedload(cls.cartao_acesso).joinedload(CartaoAcesso.aluno))
-        )
+        statement = select(cls).where(cls.synced == False).options(joinedload(cls.cartao_acesso).joinedload(CartaoAcesso.aluno))
 
         # Apply cutoff filter directly in database query for performance
         if cutoff_date:
@@ -653,9 +637,7 @@ class Acesso(BaseModel, table=True):
             session.rollback()
 
     @classmethod
-    def get_existing_access(
-        cls, cartao_id: int, date_obj: "date", time_obj: "time"
-    ) -> Optional["Acesso"]:
+    def get_existing_access(cls, cartao_id: int, date_obj: "date", time_obj: "time") -> Optional["Acesso"]:
         """Check if access record already exists"""
         session = cls._get_session()
         statement = select(cls).where(
